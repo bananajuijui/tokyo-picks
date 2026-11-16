@@ -135,6 +135,36 @@ main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:0;hei
 }
 @media (max-width:380px){.cards{grid-template-columns:1fr 1fr}}
 @media (prefers-reduced-motion:reduce){.card{transition:none}}
+/* added: language switch, sort, card meta, sheet info blocks, gallery, lightbox */
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.lang{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--bg)}
+.lang button{border:0;background:transparent;padding:7px 10px;cursor:pointer;font-size:13px;white-space:nowrap}
+.lang button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.sortsel{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:7px 10px;font-size:13.5px;max-width:100%}
+.cmeta{font:500 11.5px var(--mono);color:var(--ink);display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+.cmeta .star{color:#e0a100}
+.cmeta .ar{color:var(--muted)}
+.block{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.block h3{margin:0;font:700 12px/1.4 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.block p{font-size:14px}
+.tbrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tbscore{font:900 26px/1 var(--display);color:#e07b00}
+.tbscore small{font:500 12px var(--mono);color:var(--muted);margin-left:4px}
+.tbprice{font-size:13.5px;display:flex;flex-direction:column}
+.note{font-size:11.5px;color:var(--muted)}
+.gal{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.gal button{flex:none;width:104px;height:138px;border:0;padding:0;border-radius:8px;background:var(--chip) center/cover no-repeat;cursor:pointer;scroll-snap-align:start;position:relative}
+.gal button span{position:absolute;right:4px;bottom:4px;font:500 10px var(--mono);background:rgba(15,20,30,.7);color:#fff;border-radius:4px;padding:1px 4px}
+#lb{position:fixed;inset:0;z-index:1200;background:rgba(5,8,12,.94);display:flex;align-items:center;justify-content:center;touch-action:pan-y}
+#lb[hidden]{display:none}
+#lb img{max-width:100%;max-height:100%;object-fit:contain}
+#lb .lbb{position:absolute;border:0;background:rgba(255,255,255,.14);color:#fff;border-radius:999px;width:44px;height:44px;font-size:20px;cursor:pointer}
+#lbPrev{left:max(10px,env(safe-area-inset-left,0px));top:50%;transform:translateY(-50%)}
+#lbNext{right:max(10px,env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%)}
+#lbClose{right:max(12px,env(safe-area-inset-right,0px));top:calc(12px + env(safe-area-inset-top,0px))}
+#lbCount{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));color:#fff;font:500 12px var(--mono)}
+.flatgrid{margin-bottom:22px}
+@media (max-width:820px){.cmeta{font-size:10.5px}.tools{width:100%}.sortsel{flex:1}}
 </style>
 
 </head><body>
@@ -143,8 +173,14 @@ main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:0;hei
     <div class="top">
       <div class="brand"><h1><span class="loop" aria-hidden="true"></span>Tokyo Picks</h1><span class="count" id="count"></span></div>
       <div class="search">
-        <input id="q" type="search" placeholder="Search names, areas, food…" aria-label="Search">
-        <button class="savedbtn" id="savedBtn" aria-pressed="false" title="Show only places you saved">♥ Saved</button>
+        <input id="q" type="search" aria-label="Search">
+        <button class="savedbtn" id="savedBtn" aria-pressed="false"></button>
+      </div>
+      <div class="tools">
+        <div class="lang" role="group" aria-label="Language">
+          <button data-lang="en">EN</button><button data-lang="zh">繁中</button><button data-lang="ja">日本語</button>
+        </div>
+        <select class="sortsel" id="sort" aria-label="Sort"></select>
       </div>
     </div>
     <div class="chips" id="cats" role="toolbar" aria-label="Categories"></div>
@@ -162,12 +198,19 @@ main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:0;hei
 </main>
 
 <div class="switch" role="group" aria-label="View">
-  <button id="vList" aria-pressed="true">List</button>
-  <button id="vMap" aria-pressed="false">Map</button>
+  <button id="vList" aria-pressed="true"></button>
+  <button id="vMap" aria-pressed="false"></button>
 </div>
 
 <div id="sheetBg" hidden></div>
 <aside id="sheet" hidden aria-modal="true" role="dialog" aria-labelledby="sTitle"></aside>
+<div id="lb" hidden role="dialog" aria-modal="true" aria-label="Photo viewer">
+  <img id="lbImg" alt="">
+  <button class="lbb" id="lbPrev" aria-label="Previous">‹</button>
+  <button class="lbb" id="lbNext" aria-label="Next">›</button>
+  <button class="lbb" id="lbClose" aria-label="Close">✕</button>
+  <div id="lbCount"></div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -193,7 +236,62 @@ window.ITEMS=[
 "ap": 0,
 "pc": "Illustrative photo · Wikimedia Commons: File:Maguro Otoro (fatty tuna) Nigiri.jpg (Zheng Zhou, CC BY-SA 4.0)",
 "pu": "https://commons.wikimedia.org/wiki/File:Maguro_Otoro_(fatty_tuna)_Nigiri.jpg",
-"img": "images/alt-rairaku.jpg"
+"img": "images/alt-rairaku.jpg",
+"tr": {
+"zh": {
+"n": "鮨 らい落",
+"d": "銀座新開的壽司吧台，是超難訂的「鮨 村山」分店。主廚曾在「鮨太一」修業。整套omakase只要¥25,000（銀座多數omakase要¥30,000–40,000起）。魚料從豐洲直送，搭配赤醋飯。請盡早訂位。"
+},
+"ja": {
+"n": "鮨 らい落",
+"d": "予約困難店「鮨 むらやま」の新しい銀座支店。大将は「鮨 太一」で修業。おまかせ25,000円（銀座の相場は3〜4万円）。豊洲直送の魚に赤酢のシャリ。早めの予約を。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"Omakase 主廚套餐",
+"おまかせ"
+],
+"h": {
+"en": "Mon–Sat 11:00–14:00, 17:00–22:00 · closed Sun & holidays",
+"zh": "週一至六 11:00–14:00、17:00–22:00・週日及國定假日休",
+"ja": "月〜土 11:00–14:00 / 17:00–22:00・日祝休"
+},
+"cs": {
+"en": "Commenters compare it with other Murayama-line counters (the author says the flavours differ: Seto Inland Sea fish, 150-year-old Hiroshima vinegar). One notes its Tabelog score is only ~3.05 — the author replies it has just opened.",
+"zh": "留言多拿來和村山系其他店比較（作者說風格不同：用瀨戶內海漁獲、廣島150年醋）。有人指出Tabelog只有約3.05分，作者回覆因為剛開幕。",
+"ja": "コメントは同じむらやま系の店との比較が中心（作者いわく瀬戸内の魚と広島の老舗酢で味が違う）。食べログ3.05と低めとの指摘には「開店したばかり」と返信。"
+},
+"tip": {
+"en": "Reservation only (完全予約制). Book as early as you can — the author expects it to become hard to book like Sushi Murayama. Lunch seatings also exist.",
+"zh": "完全預約制。盡早訂位——作者預期很快會像「鮨 村山」一樣難訂。也有午餐場次。",
+"ja": "完全予約制。むらやま同様に予約困難になる前に早めの予約を。ランチ営業もあり。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1301/A130101/13316769/",
+"s": "3.06",
+"n": "12",
+"dn": "￥20,000～￥29,999",
+"ln": "-",
+"nm": "鮨 らい落"
+},
+"r": 3.06,
+"p": 20000,
+"g": [
+"images/g/DfI1lfwn9tU_1.jpg",
+"images/g/DfI1lfwn9tU_2.jpg",
+"images/g/DfI1lfwn9tU_3.jpg",
+"images/g/DfI1lfwn9tU_4.jpg"
+],
+"ar": [
+"Ginza",
+"銀座",
+"銀座",
+0
+]
 },
 {
 "id": 1,
@@ -209,11 +307,74 @@ window.ITEMS=[
 "refs": [
 "https://www.threads.com/@swoonsa/post/DfO15f6oLUX"
 ],
-"ll": null,
-"ap": 0,
+"ll": [
+35.649,
+139.718
+],
+"ap": 1,
 "pc": "Illustrative photo · Wikimedia Commons: File:Kohada (mid-sized konoshiro gizzard shad) Nigiri.jpg (Zheng Zhou, CC BY-SA 4.0)",
 "pu": "https://commons.wikimedia.org/wiki/File:Kohada_(mid-sized_konoshiro_gizzard_shad)_Nigiri.jpg",
-"img": "images/alt-kobayashi.jpg"
+"img": "images/alt-kobayashi.jpg",
+"tr": {
+"zh": {
+"n": "鮨こばやし",
+"d": "2025年10月開幕，小林師傅在「鮨 齋藤」修業16年後自立門戶。omakase每人¥29,700。米飯與魚料平衡得很好。注意：東京有兩家同名壽司店，訂位時別搞錯。"
+},
+"ja": {
+"n": "鮨こばやし",
+"d": "2025年10月開業。「鮨 さいとう」で16年修業した小林氏の店。おまかせ29,700円。シャリとネタのバランスが秀逸。都内に同名店が2軒あるので予約時に注意。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"Omakase 主廚套餐",
+"おまかせ"
+],
+"h": {
+"en": "One seating at 18:00 (a second at 20:45 on busy days); lunch possible · closed Sun & Mon",
+"zh": "18:00 一齊開始（忙時加開 20:45 第二輪），可預約午餐・週日、週一休",
+"ja": "18:00一斉スタート（2回転目20:45）、ランチ可・日月休"
+},
+"cs": {
+"en": "The author booked about 2 months ahead by DM on Instagram — Instagram is the only way to book. Readers say it is cheaper than comparable Saito-line shops; one asks which of the two same-name shops it is (the Hiroo/Ebisu one).",
+"zh": "作者約2個月前透過IG私訊訂到——只接受IG預約。有人說價格比同等級的齋藤系便宜；也有人問是哪一家同名店（廣尾/惠比壽這家）。",
+"ja": "作者は約2か月前にInstagramのDMで予約（予約はIGのみ）。同格のさいとう系より安いとの声。同名店との混同に注意（広尾・恵比寿の店）。"
+},
+"tip": {
+"en": "Book ~2 months ahead via the shop's Instagram DM (no phone yet). ¥29,700 per person after the latest price rise. Don't confuse it with the other \"Sushi Kobayashi\".",
+"zh": "約2個月前用店家IG私訊預約（目前沒有電話）。漲價後每人¥29,700。別和另一家同名「鮨こばやし」搞混。",
+"ja": "約2か月前に店のInstagram DMで予約（電話は未設置）。値上げ後¥29,700。同名の別店に注意。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1303/A130302/13314891/",
+"s": "3.93",
+"n": "71",
+"dn": "￥30,000～￥39,999",
+"ln": "-",
+"nm": "鮨こばやし"
+},
+"r": 3.93,
+"p": 30000,
+"g": [
+"images/g/DfO15f6oLUX_1.jpg",
+"images/g/DfO15f6oLUX_2.jpg",
+"images/g/DfO15f6oLUX_3.jpg",
+"images/g/DfO15f6oLUX_4.jpg",
+"images/g/DfO15f6oLUX_5.jpg",
+"images/g/DfO15f6oLUX_6.jpg",
+"images/g/DfO15f6oLUX_7.jpg",
+"images/g/DfO15f6oLUX_8.jpg",
+"images/g/DfO15f6oLUX_9.jpg"
+],
+"ar": [
+"Hiroo",
+"廣尾",
+"広尾",
+12
+]
 },
 {
 "id": 2,
@@ -236,7 +397,73 @@ window.ITEMS=[
 "ap": 1,
 "pc": "retty.me",
 "pu": "https://retty.me/area/PRE13/ARE2/SUB201/100001728034/",
-"img": "images/alt-soma.jpg"
+"img": "images/alt-soma.jpg",
+"tr": {
+"zh": {
+"n": "銀座 まぐろ相馬水產",
+"d": "銀座品質不錯的壽司。最大亮點是師傅：就算不懂日文，也能感受到他的幽默和熱情。"
+},
+"ja": {
+"n": "まぐろ 相馬水産（銀座）",
+"d": "銀座で質の良い寿司。日本語が分からなくても楽しめる、面白くて温かい大将が魅力。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"壽司＆海鮮",
+"寿司・海鮮"
+],
+"h": {
+"en": "Daily 11:30–22:00 (lunch to 16:00, last order 21:30)",
+"zh": "每日 11:30–22:00（午餐至16:00，最後點餐21:30）",
+"ja": "毎日 11:30–22:00（ランチ〜16:00、L.O.21:30）"
+},
+"cs": {
+"en": "No discussion beyond the post: the author highlights quality fish and a funny, warm chef who entertains even non-Japanese speakers.",
+"zh": "貼文下沒有其他討論；作者主要稱讚魚料品質和幽默親切的師傅，不懂日文也能感受到。",
+"ja": "投稿以外のコメントはなし。魚の質と、日本語が分からなくても楽しませてくれる大将を高評価。"
+},
+"tip": {
+"en": "Bookable; seats are limited to 2 hours. Under the railway arches on Ginza Corridor street — walk-ins usually fine at lunch, book for dinner.",
+"zh": "可預約，用餐限時2小時。在銀座Corridor街高架橋下——午餐通常可直接入店，晚餐建議預約。",
+"ja": "予約可・2時間制。コリドー街の高架下。ランチは当日入店しやすく、夜は予約推奨。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1301/A130101/13260024/",
+"s": "3.49",
+"n": "632",
+"dn": "￥4,000～￥4,999",
+"ln": "￥1,000～￥1,999",
+"nm": "まぐろ 相馬水産"
+},
+"r": 3.49,
+"p": 4000,
+"g": [
+"images/g/DfQ65cxCZNb_1.jpg",
+"images/g/DfQ65cxCZNb_2.jpg",
+"images/g/DfQ65cxCZNb_3.jpg",
+"images/g/DfQ65cxCZNb_4.jpg",
+"images/g/DfQ65cxCZNb_5.jpg",
+"images/g/DfQ65cxCZNb_6.jpg",
+"images/g/DfQ65cxCZNb_7.jpg",
+"images/g/DfQ65cxCZNb_8.jpg",
+"images/g/DfQ65cxCZNb_9.jpg",
+"images/g/DfQ65cxCZNb_10.jpg",
+"images/g/DfQ65cxCZNb_11.jpg",
+"images/g/DfQ65cxCZNb_12.jpg",
+"images/g/DfQ65cxCZNb_13.jpg",
+"images/g/DfQ65cxCZNb_14.jpg",
+"images/g/DfQ65cxCZNb_15.jpg"
+],
+"ar": [
+"Ginza",
+"銀座",
+"銀座",
+0
+]
 },
 {
 "id": 3,
@@ -259,7 +486,75 @@ window.ITEMS=[
 "ap": 1,
 "pc": "savorjapan.com",
 "pu": "https://savorjapan.com/0006138195",
-"img": "images/alt-zai.jpg"
+"img": "images/alt-zai.jpg",
+"tr": {
+"zh": {
+"n": "鮨 在（廣尾）",
+"d": "Tabelog 4.10的omakase。香港美食帳號說以香港標準來看也非常出色。"
+},
+"ja": {
+"n": "鮨 在（広尾）",
+"d": "食べログ4.10のおまかせ。香港のグルメアカウントも「香港基準でも素晴らしい」と絶賛。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"Omakase 主廚套餐",
+"おまかせ"
+],
+"h": {
+"en": "Mon–Fri 17:30–22:30 · Sat 12:00–14:00, 17:00–22:00 · closed Sun",
+"zh": "週一至五 17:30–22:30・週六 12:00–14:00、17:00–22:00・週日休",
+"ja": "月〜金 17:30–22:30・土 12:00–14:00 / 17:00–22:00・日休"
+},
+"cs": {
+"en": "Hong Kong diners agree it beats HK omakase. The chef says several HK groups book every day. One finds the silent smiling chef a bit awkward; another found the staff bowing over a generous tip funny.",
+"zh": "香港食客一致認為比香港的omakase好。師傅說每天都有好幾組香港客。有人覺得師傅一直微笑看著但不說話有點尷尬；也有人分享多給小費被一直鞠躬道謝。",
+"ja": "香港の客は「香港のおまかせより上」と一致。毎日香港からの予約が数組あるそう。無言でにこにこ見守る大将が少し気まずいという声も。"
+},
+"tip": {
+"en": "Tabelog 4.08, Top 100. Book online any time via TableCheck (search \"鮨在 予約\"); phone 12:00–23:00 (Sat from 10:00). Private room for the late seatings needs 3+ adults. No strong perfume.",
+"zh": "Tabelog 4.08、百名店。可隨時用TableCheck網路預約（搜尋「鮨在 予約」）；電話受理12:00–23:00（週六10:00起）。晚場包廂需3位成人以上。勿擦濃香水。",
+"ja": "食べログ4.08・百名店。TableCheckでWEB予約可（「鮨在 予約」で検索）。電話は12時〜23時（土曜10時〜）。後半の個室は大人3名〜。香水NG。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1307/A130703/13233764/",
+"s": "4.08",
+"n": "539",
+"dn": "￥20,000～￥29,999",
+"ln": "￥20,000～￥29,999",
+"nm": "鮨 在"
+},
+"r": 4.08,
+"p": 20000,
+"g": [
+"images/g/DcOb-ezkvIT_1.jpg",
+"images/g/DcOb-ezkvIT_2.jpg",
+"images/g/DcOb-ezkvIT_3.jpg",
+"images/g/DcOb-ezkvIT_4.jpg",
+"images/g/DcOb-ezkvIT_5.jpg",
+"images/g/DcOb-ezkvIT_6.jpg",
+"images/g/DcOb-ezkvIT_7.jpg",
+"images/g/DcOb-ezkvIT_8.jpg",
+"images/g/DcOb-ezkvIT_9.jpg",
+"images/g/DcOb-ezkvIT_10.jpg",
+"images/g/DcOb-ezkvIT_11.jpg",
+"images/g/DcOb-ezkvIT_12.jpg",
+"images/g/DcOb-ezkvIT_13.jpg",
+"images/g/DcOb-ezkvIT_14.jpg",
+"images/g/DcOb-ezkvIT_15.jpg",
+"images/g/DcOb-ezkvIT_16.jpg",
+"images/g/DcOb-ezkvIT_17.jpg"
+],
+"ar": [
+"Hiroo",
+"廣尾",
+"広尾",
+12
+]
 },
 {
 "id": 4,
@@ -280,7 +575,63 @@ window.ITEMS=[
 139.76886
 ],
 "ap": 0,
-"img": "images/Deo9tDpiovI.jpg"
+"img": "images/Deo9tDpiovI.jpg",
+"tr": {
+"zh": {
+"n": "なかまた（鮪魚海鮮丼）",
+"d": "在歌舞伎座後面。使用豐洲仲卸「山幸」的鮪魚。海鮮丼¥1,980起，頂級「全部乗せ」¥6,480。三種吃法：先沾芥末醬油，再加芝麻與甜醬油，最後拌入蛋黃。營業11:00–21:00。銀座站A6出口步行5分鐘、東銀座站3號出口1分鐘。"
+},
+"ja": {
+"n": "まぐろと魚 海鮮めし なかまた",
+"d": "歌舞伎座裏。豊洲の仲卸「やま幸」のまぐろを使用。海鮮めし1,980円〜、極上全部乗せ6,480円。わさび醤油→ごま＋甘醤油→卵黄の3段階で。11:00〜21:00。銀座駅A6徒歩5分、東銀座駅3番出口1分。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"壽司＆海鮮",
+"寿司・海鮮"
+],
+"h": {
+"en": "Daily 11:00–21:00 (last order 20:30); open Sun & holidays from November",
+"zh": "每日 11:00–21:00（最後點餐20:30）；11月起週日及假日也營業",
+"ja": "毎日 11:00–21:00（L.O.20:30）・11月以降は日祝も営業"
+},
+"cs": {
+"en": "Mostly foreigners asking for the name. A Japanese commenter warns the bowl in the video is the ¥6,480 one and the ¥1,980 bowl looks like offcuts — \"misleading PR\".",
+"zh": "多數是外國人詢問店名。有日本網友提醒影片裡是¥6,480的丼，¥1,980的看起來像邊角料——「宣傳有誤導」。",
+"ja": "店名を聞く海外コメントが多数。「動画の丼は6,480円で、1,980円は切れ端のよう。誤解を招くPR」という日本語の指摘も。"
+},
+"tip": {
+"en": "Bookable; set meals only (no à la carte). Open all day, so go mid-afternoon to skip the lunch queue. The top bowl in the video is ¥6,480; the \"from ¥1,980\" bowl is much simpler.",
+"zh": "可預約，只供應定食（沒有單點）。全天營業，下午時段去可避開午餐人潮。影片裡的頂級丼是¥6,480，「¥1,980起」的版本簡單很多。",
+"ja": "予約可・定食のみ（単品なし）。通し営業なので昼過ぎが狙い目。動画の極上丼は6,480円、1,980円の丼はかなりシンプル。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1301/A130101/13325511/",
+"s": "3.20",
+"n": "60",
+"dn": "￥2,000～￥2,999",
+"ln": "￥2,000～￥2,999",
+"nm": "まぐろと魚 海鮮めし なかまた"
+},
+"r": 3.2,
+"p": 2000,
+"g": [
+"images/g/Deo9tDpiovI_1.jpg",
+"images/g/Deo9tDpiovI_2.jpg",
+"images/g/Deo9tDpiovI_3.jpg",
+"images/g/Deo9tDpiovI_4.jpg",
+"images/g/Deo9tDpiovI_5.jpg"
+],
+"ar": [
+"Ginza",
+"銀座",
+"銀座",
+0
+]
 },
 {
 "id": 5,
@@ -301,7 +652,54 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DdB4FeuhJu9.jpg"
+"img": "images/DdB4FeuhJu9.jpg",
+"tr": {
+"zh": {
+"n": "鮪魚肚丼：海之幸翔 & まぐろ亭",
+"d": "推薦兩家東京鮪魚肚（toro）丼。貼文沒有地址，請自行搜尋店名。"
+},
+"ja": {
+"n": "トロ丼：海の幸 翔 & まぐろ亭",
+"d": "東京のトロ丼2店。住所の記載がないので店名で検索を。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"壽司＆海鮮",
+"寿司・海鮮"
+],
+"h": {
+"en": "Not checked (no exact shop address in the post)",
+"zh": "未確認（貼文沒有確切地址）",
+"ja": "未確認（投稿に正確な住所なし）"
+},
+"cs": {
+"en": "Comments are harsh: several Hong Kongers say it was \"really bad\" and not worth going, others criticise the leftovers in the video; one asks what time to queue.",
+"zh": "留言評價很差：多位香港人說「好難食、唔使去」，也有人批評影片裡吃剩很多；有人問要幾點去排隊。",
+"ja": "コメントは辛口。香港の人から「まずい、行かなくていい」との声多数、食べ残しへの批判も。並ぶ時間を尋ねる人も。"
+},
+"tip": {
+"en": "Low priority — commenters strongly disagree with the post. If you go, check the exact branch on Google Maps first.",
+"zh": "優先度低——留言普遍不認同。真的要去的話先在Google地圖確認分店位置。",
+"ja": "優先度低（コメントの評価が悪い）。行くならGoogleマップで店舗を確認。"
+},
+"p": 3500,
+"pe": 1,
+"g": [
+"images/g/DdB4FeuhJu9_1.jpg",
+"images/g/DdB4FeuhJu9_2.jpg",
+"images/g/DdB4FeuhJu9_3.jpg",
+"images/g/DdB4FeuhJu9_4.jpg",
+"images/g/DdB4FeuhJu9_5.jpg",
+"images/g/DdB4FeuhJu9_6.jpg",
+"images/g/DdB4FeuhJu9_7.jpg",
+"images/g/DdB4FeuhJu9_8.jpg",
+"images/g/DdB4FeuhJu9_9.jpg"
+],
+"ar": null
 },
 {
 "id": 6,
@@ -324,7 +722,67 @@ window.ITEMS=[
 "ap": 0,
 "pc": "hamoni.jp",
 "pu": "https://hamoni.jp/en/shop/I8RVcLSrPcLYxmdM6gaG",
-"img": "images/alt-yoroniku.jpg"
+"img": "images/alt-yoroniku.jpg",
+"tr": {
+"zh": {
+"n": "YORONIKU TOKYO（麻布台Hills）",
+"d": "「可能是我人生吃過最好吃的燒肉。」位於麻布台Hills Tower Plaza 3樓的高級燒肉。"
+},
+"ja": {
+"n": "YORONIKU TOKYO 麻布台ヒルズ",
+"d": "「人生最高の焼肉かも」。麻布台ヒルズ タワープラザ3Fの高級焼肉。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"和牛、燒肉＆壽喜燒",
+"和牛・焼肉・すき焼き"
+],
+"h": {
+"en": "Daily 17:00–23:00 (last order 22:00) · closed over New Year",
+"zh": "每日 17:00–23:00（最後點餐22:00）・年末年始休",
+"ja": "毎日 17:00–23:00（L.O.22:00）・年末年始休"
+},
+"cs": {
+"en": "Many say it is \"super hard to book\"; one asks if 2 people can book at all. Some think it is good but not \"best ever\" — it uses gas grills, not charcoal.",
+"zh": "很多人說「超難訂」，有人問2個人是不是訂不到。也有人覺得好吃但沒那麼誇張——用的是瓦斯爐不是炭火。",
+"ja": "「予約がとても取りにくい」という声多数、2名で予約できるかの質問も。ガス火なので「そこまでではない」という意見も。"
+},
+"tip": {
+"en": "Tabelog 4.35. All private rooms, dinner only. Set an alert and book on Tabelog/the official site the moment slots open; cancellation fees apply within 48 h. The Ebisu branch (蕃 YORONIKU) is an alternative.",
+"zh": "Tabelog 4.35。全包廂、只有晚餐。在Tabelog或官網開放名額時立刻搶訂；48小時內取消要收費。也可改訂惠比壽店（蕃 YORONIKU）。",
+"ja": "食べログ4.35。全室個室・ディナーのみ。食べログ/公式で枠が出たら即予約。48時間前からキャンセル料。恵比寿の「蕃 YORONIKU」も選択肢。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1307/A130701/13291424/",
+"s": "4.35",
+"n": "362",
+"dn": "￥15,000～￥19,999",
+"ln": "-",
+"nm": "YORONIKU TOKYO AZABUDAIHILLS"
+},
+"r": 4.35,
+"p": 15000,
+"g": [
+"images/g/DeJkbpwx87j_1.jpg",
+"images/g/DeJkbpwx87j_2.jpg",
+"images/g/DeJkbpwx87j_3.jpg",
+"images/g/DeJkbpwx87j_4.jpg",
+"images/g/DeJkbpwx87j_5.jpg",
+"images/g/DeJkbpwx87j_6.jpg",
+"images/g/DeJkbpwx87j_7.jpg",
+"images/g/DeJkbpwx87j_8.jpg",
+"images/g/DeJkbpwx87j_9.jpg"
+],
+"ar": [
+"Roppongi / Azabu",
+"六本木／麻布",
+"六本木・麻布",
+9
+]
 },
 {
 "id": 7,
@@ -345,7 +803,67 @@ window.ITEMS=[
 139.702774
 ],
 "ap": 0,
-"img": "images/DeyzGNpP19n.jpg"
+"img": "images/DeyzGNpP19n.jpg",
+"tr": {
+"zh": {
+"n": "USHIGORO S. 新宿",
+"d": "A5黑毛和牛由專人代烤，全包廂。必點：黑松露和牛三明治和厚切牛舌。在11樓。"
+},
+"ja": {
+"n": "USHIGORO S. 新宿",
+"d": "A5黒毛和牛を専任スタッフが焼いてくれる全室個室。和牛サンド（生トリュフ）と厚切りタンが必食。11F。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"和牛、燒肉＆壽喜燒",
+"和牛・焼肉・すき焼き"
+],
+"h": {
+"en": "Mon–Fri 17:00–23:30 · Sat/Sun/holidays 12:00–15:00, 17:00–23:30 · closed 31 Dec–3 Jan",
+"zh": "週一至五 17:00–23:30・週末及假日 12:00–15:00、17:00–23:30・12/31–1/3休",
+"ja": "月〜金 17:00–23:30・土日祝 12:00–15:00 / 17:00–23:30・12/31〜1/3休"
+},
+"cs": {
+"en": "From a 4-yakiniku round-up video; the only comment asks about the truffle set at another shop.",
+"zh": "出自燒肉4間合輯影片；唯一留言是在問另一家的松露套餐。",
+"ja": "焼肉4店まとめ動画より。コメントは別店のトリュフセットについての質問のみ。"
+},
+"tip": {
+"en": "Bookable on Tabelog; weekend lunch is the cheaper way in (from ~¥15,000). All private rooms with a grill master; 10% service charge.",
+"zh": "可在Tabelog預約；週末午餐較划算（約¥15,000起）。全包廂、有專人燒烤；另收10%服務費。",
+"ja": "食べログで予約可。週末ランチが比較的お得（約1.5万円〜）。全室個室で焼き手付き・サ10%。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1304/A130401/13268688/",
+"s": "3.77",
+"n": "507",
+"dn": "￥20,000～￥29,999",
+"ln": "￥15,000～￥19,999",
+"nm": "USHIGORO S. SHINJUKU"
+},
+"r": 3.77,
+"p": 20000,
+"g": [
+"images/g/DeyzGNpP19n_1.jpg",
+"images/g/DeyzGNpP19n_2.jpg",
+"images/g/DeyzGNpP19n_3.jpg",
+"images/g/DeyzGNpP19n_4.jpg",
+"images/g/DeyzGNpP19n_5.jpg",
+"images/g/DeyzGNpP19n_6.jpg",
+"images/g/DeyzGNpP19n_7.jpg",
+"images/g/DeyzGNpP19n_8.jpg",
+"images/g/DeyzGNpP19n_9.jpg"
+],
+"ar": [
+"Shinjuku",
+"新宿",
+"新宿",
+4
+]
 },
 {
 "id": 8,
@@ -368,7 +886,67 @@ window.ITEMS=[
 "ap": 0,
 "pc": "savorjapan.com",
 "pu": "https://savorjapan.com/0004030282",
-"img": "images/alt-chikamitsu.jpg"
+"img": "images/alt-chikamitsu.jpg",
+"tr": {
+"zh": {
+"n": "銀座 ちかみつ",
+"d": "Tabelog百名店（2025）。招牌「海膽和牛熱狗」：和牛韃靼上鋪滿兩種海膽。"
+},
+"ja": {
+"n": "銀座 ちかみつ",
+"d": "食べログ百名店2025。名物は2種のウニをのせた「ウニ和牛ドッグ」。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"和牛、燒肉＆壽喜燒",
+"和牛・焼肉・すき焼き"
+],
+"h": {
+"en": "Daily 11:00–15:00, 17:00–23:30 (last order 22:30)",
+"zh": "每日 11:00–15:00、17:00–23:30（最後點餐22:30）",
+"ja": "毎日 11:00–15:00 / 17:00–23:30（L.O.22:30）"
+},
+"cs": {
+"en": "From the same yakiniku round-up; no specific comments about this shop.",
+"zh": "出自同一支燒肉合輯；沒有針對這家的留言。",
+"ja": "同じ焼肉まとめ動画より。この店についてのコメントはなし。"
+},
+"tip": {
+"en": "Reservation only; online booking 24 h, phone 13:00–23:30. 10% service charge. If this branch is full, try 銀座ちかみつ 六丁目 or 並木通り.",
+"zh": "完全預約制；網路24小時可訂，電話13:00–23:30。另收10%服務費。這家訂滿可試六丁目店或並木通店。",
+"ja": "完全予約制。ネット予約24時間、電話13時〜23時半。サ10%。満席なら六丁目店・並木通り店も。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1301/A130101/13247552/",
+"s": "3.60",
+"n": "474",
+"dn": "￥10,000～￥14,999",
+"ln": "￥10,000～￥14,999",
+"nm": "銀座 ちかみつ"
+},
+"r": 3.6,
+"p": 10000,
+"g": [
+"images/g/DeyzGNpP19n_1.jpg",
+"images/g/DeyzGNpP19n_2.jpg",
+"images/g/DeyzGNpP19n_3.jpg",
+"images/g/DeyzGNpP19n_4.jpg",
+"images/g/DeyzGNpP19n_5.jpg",
+"images/g/DeyzGNpP19n_6.jpg",
+"images/g/DeyzGNpP19n_7.jpg",
+"images/g/DeyzGNpP19n_8.jpg",
+"images/g/DeyzGNpP19n_9.jpg"
+],
+"ar": [
+"Ginza",
+"銀座",
+"銀座",
+0
+]
 },
 {
 "id": 9,
@@ -391,7 +969,67 @@ window.ITEMS=[
 "ap": 0,
 "pc": "retty.me",
 "pu": "https://retty.me/area/PRE13/ARE14/SUB1405/100001451737/",
-"img": "images/alt-kumasan.jpg"
+"img": "images/alt-kumasan.jpg",
+"tr": {
+"zh": {
+"n": "麻布 kumasan",
+"d": "創意和牛懷石，菜色非常可愛（小熊最中、迷你漢堡）。很好拍，但評論者覺得味道沒那麼難忘。"
+},
+"ja": {
+"n": "麻布 kumasan",
+"d": "見た目が可愛い創作和牛懐石（くまの最中、ミニバーガー）。映えるが味の印象は薄めとの評価。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"Omakase 主廚套餐",
+"おまかせ"
+],
+"h": {
+"en": "Mon–Sat 12:00–14:00, dinner 18:00 or 20:30 seating · closed Sun",
+"zh": "週一至六 12:00–14:00，晚餐分18:00 / 20:30兩輪・週日休",
+"ja": "月〜土 12:00–14:00、夜は18:00 / 20:30の二部制・日休"
+},
+"cs": {
+"en": "Reviewer: beautiful, photogenic dishes but the taste was less memorable. No other comments.",
+"zh": "評論者：菜色漂亮好拍，但味道沒那麼驚豔。沒有其他留言。",
+"ja": "見た目は華やかで映えるが、味の印象は薄めとの評価。他のコメントはなし。"
+},
+"tip": {
+"en": "Reservation only. Counter dinner has two seatings (18:00 / 20:30). Lunch (~¥10,000–15,000) is far cheaper than dinner (~¥30,000+).",
+"zh": "完全預約制。吧台晚餐分兩輪（18:00 / 20:30）。午餐（約¥10,000–15,000）比晚餐（約¥30,000以上）便宜很多。",
+"ja": "完全予約制。カウンターは18:00 / 20:30の2部制。ランチ（1〜1.5万円）は夜（3万円〜）よりかなり安い。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1307/A130702/13230596/",
+"s": "3.67",
+"n": "277",
+"dn": "￥30,000～￥39,999",
+"ln": "￥10,000～￥14,999",
+"nm": "麻布 kumasan"
+},
+"r": 3.67,
+"p": 30000,
+"g": [
+"images/g/DeyzGNpP19n_1.jpg",
+"images/g/DeyzGNpP19n_2.jpg",
+"images/g/DeyzGNpP19n_3.jpg",
+"images/g/DeyzGNpP19n_4.jpg",
+"images/g/DeyzGNpP19n_5.jpg",
+"images/g/DeyzGNpP19n_6.jpg",
+"images/g/DeyzGNpP19n_7.jpg",
+"images/g/DeyzGNpP19n_8.jpg",
+"images/g/DeyzGNpP19n_9.jpg"
+],
+"ar": [
+"Roppongi / Azabu",
+"六本木／麻布",
+"六本木・麻布",
+9
+]
 },
 {
 "id": 10,
@@ -412,7 +1050,64 @@ window.ITEMS=[
 139.714
 ],
 "ap": 1,
-"img": "images/DfORvyGE6YE.jpg"
+"img": "images/DfORvyGE6YE.jpg",
+"tr": {
+"zh": {
+"n": "焼肉 A-bull 池袋（「前男友套餐」）",
+"d": "在池袋唐吉訶德附近。向店員點隱藏版「前男友套餐」。CP值很高、很飽。"
+},
+"ja": {
+"n": "焼肉 あぶる。池袋（「元カレセット」）",
+"d": "ドン・キホーテ池袋の近く。裏メニュー「元カレセット」を店員に頼もう。コスパ抜群でボリューム満点。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"和牛、燒肉＆壽喜燒",
+"和牛・焼肉・すき焼き"
+],
+"h": {
+"en": "Daily 11:30–14:30, 17:00–23:00 (last order 22:30)",
+"zh": "每日 11:30–14:30、17:00–23:00（最後點餐22:30）",
+"ja": "毎日 11:30–14:30 / 17:00–23:00（L.O.22:30）"
+},
+"cs": {
+"en": "The shop itself replied, thanking the author and confirming the \"ex-boyfriend BBQ set\" is real.",
+"zh": "店家親自回覆感謝，並證實「前男友燒肉套餐」確實存在。",
+"ja": "店舗公式が返信し、「元カレ焼肉セット」が実在することを確認。"
+},
+"tip": {
+"en": "Tabelog lists it as 焼肉 あぶる。池袋店. Seat-only dinner bookings need ¥4,400+ per person; tables are released if you are 10 min late. Lunch sets ~¥1,000–2,000.",
+"zh": "Tabelog店名是「焼肉 あぶる。池袋店」。只訂位的晚餐每人最低消費¥4,400；遲到10分鐘會被取消。午餐套餐約¥1,000–2,000。",
+"ja": "食べログ名は「焼肉 あぶる。池袋店」。席のみ予約は1人4,400円以上、10分遅刻でキャンセル扱い。ランチは1,000〜2,000円。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1305/A130501/13159144/",
+"s": "3.31",
+"n": "198",
+"dn": "￥5,000～￥5,999",
+"ln": "￥1,000～￥1,999",
+"nm": "焼肉 あぶる。 池袋店"
+},
+"r": 3.31,
+"p": 5000,
+"g": [
+"images/g/DfORvyGE6YE_1.jpg",
+"images/g/DfORvyGE6YE_2.jpg",
+"images/g/DfORvyGE6YE_3.jpg",
+"images/g/DfORvyGE6YE_4.jpg",
+"images/g/DfORvyGE6YE_5.jpg",
+"images/g/DfORvyGE6YE_6.jpg"
+],
+"ar": [
+"Ikebukuro",
+"池袋",
+"池袋",
+8
+]
 },
 {
 "id": 11,
@@ -435,7 +1130,61 @@ window.ITEMS=[
 "ap": 0,
 "pc": "hamoni.jp",
 "pu": "https://hamoni.jp/shop/6mf7kPeqiVuzpcuYXgmE",
-"img": "images/alt-mirakutei.jpg"
+"img": "images/alt-mirakutei.jpg",
+"tr": {
+"zh": {
+"n": "味楽亭（1975年創業下町燒肉）",
+"d": "荒川區家族經營的燒肉老店，1975年開業，昭和氛圍、在地感十足。點牛舌（タン）、橫膈膜（ハラミ）和上里肌（上ロース）。比市中心名店便宜。"
+},
+"ja": {
+"n": "焼肉 味楽亭",
+"d": "1975年創業、荒川区の家族経営の焼肉店。昭和の下町の雰囲気。タン・ハラミ・上ロースがおすすめ。都心の有名店より手頃。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"和牛、燒肉＆壽喜燒",
+"和牛・焼肉・すき焼き"
+],
+"h": {
+"en": "Mon–Fri 16:30–22:30 · Sat/Sun 16:00–22:30",
+"zh": "週一至五 16:30–22:30・週末 16:00–22:30",
+"ja": "月〜金 16:30–22:30・土日 16:00–22:30"
+},
+"cs": {
+"en": "Only the author's own thread (tongue, harami, premium loin; also good for offal). No reader comments.",
+"zh": "只有作者自己的串文（推牛舌、橫膈膜、上里肌，內臟也好吃），沒有讀者留言。",
+"ja": "作者の連投のみ（タン・ハラミ・上ロース、ホルモンもおすすめ）。読者のコメントはなし。"
+},
+"tip": {
+"en": "Bookable by phone (03-3893-2126). Nearest station Shin-Mikawashima; tables fill with locals early on weekends, so book or arrive at opening.",
+"zh": "可電話預約（03-3893-2126）。最近車站是新三河島；週末很早就被當地人坐滿，建議預約或開店就到。",
+"ja": "電話予約可（03-3893-2126）。最寄りは新三河島。週末は早くから地元客で埋まるので予約か開店直後に。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1324/A132401/13066722/",
+"s": "3.62",
+"n": "355",
+"dn": "￥4,000～￥4,999",
+"ln": "-",
+"nm": "味楽亭"
+},
+"r": 3.62,
+"p": 4000,
+"g": [
+"images/g/DfRr9qyCbdO_1.jpg",
+"images/g/DfRr9qyCbdO_2.jpg",
+"images/g/DfRr9qyCbdO_3.jpg"
+],
+"ar": [
+"Nippori / Yanaka",
+"日暮里／谷中",
+"日暮里・谷中",
+17
+]
 },
 {
 "id": 12,
@@ -456,28 +1205,139 @@ window.ITEMS=[
 139.694946
 ],
 "ap": 0,
-"img": "images/DdZAv4uIpRF.jpg"
+"img": "images/DdZAv4uIpRF.jpg",
+"tr": {
+"zh": {
+"n": "しゃぶ禅 澀谷店（黑毛和牛壽喜燒吃到飽）",
+"d": "40年老店。黑毛和牛壽喜燒吃到飽¥9,000／120分鐘，店員補肉非常勤快。營業17:00–23:00。在澀谷Creston Hotel B1。"
+},
+"ja": {
+"n": "しゃぶ禅 渋谷店",
+"d": "創業40年。黒毛和牛すき焼き食べ放題9,000円／120分、おかわりの気配りが抜群。17:00〜23:00。渋谷クレストンホテルB1。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"和牛、燒肉＆壽喜燒",
+"和牛・焼肉・すき焼き"
+],
+"h": {
+"en": "Daily 17:00–23:00 (all-you-can-eat orders until 21:30)",
+"zh": "每日 17:00–23:00（吃到飽點餐至21:30）",
+"ja": "毎日 17:00–23:00（食べ放題は21:30まで）"
+},
+"cs": {
+"en": "Comments are almost all \"+1\" — readers asking the author to DM them the details.",
+"zh": "留言幾乎都是「+1」，請作者私訊店家資訊。",
+"ja": "コメントはほぼ「+1」（店情報のDM希望）。"
+},
+"tip": {
+"en": "Bookable. Last all-you-can-eat order 21:30, so arrive by ~19:30 to use the full 120 min. Look for Tabelog course deals (the premium wagyu course is discounted online).",
+"zh": "可預約。吃到飽最後點餐21:30，建議19:30前到才能吃滿120分鐘。可留意Tabelog上的網路優惠方案。",
+"ja": "予約可。食べ放題L.O.21:30なので120分使うなら19:30までに。食べログのネット予約限定コースがお得。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1303/A130301/13007431/",
+"s": "3.16",
+"n": "263",
+"dn": "￥6,000～￥7,999",
+"ln": "-",
+"nm": "しゃぶ禅 渋谷店"
+},
+"r": 3.16,
+"p": 6000,
+"g": [
+"images/g/DdZAv4uIpRF_1.jpg",
+"images/g/DdZAv4uIpRF_2.jpg",
+"images/g/DdZAv4uIpRF_3.jpg",
+"images/g/DdZAv4uIpRF_4.jpg",
+"images/g/DdZAv4uIpRF_5.jpg",
+"images/g/DdZAv4uIpRF_6.jpg"
+],
+"ar": [
+"Shibuya",
+"澀谷",
+"渋谷",
+3
+]
 },
 {
 "id": 13,
 "c": "Eat",
 "s": "Wagyu, Yakiniku & Sukiyaki",
 "n": "One-person A5 wagyu sukiyaki under ¥1,500 (Nihonbashi)",
-"j": "日本橋（店名: 一り?）",
-"d": "A5 wagyu, one pot per person, under ¥1,500. In a reply the author gave the shop name as roughly \"Nihonbashi 1ri\" (日本橋 一り?). Long queue, so go early. The name is uncertain; check the link.",
+"j": "黒毛和牛とお出汁 日本橋いちり",
+"d": "A5 wagyu, one pot per person, under ¥1,500. A commenter identified the shop: Kuroge Wagyu to Odashi Nihonbashi Ichiri (Mitsukoshimae). Small and popular, so go early.",
 "by": "@travelfish.jp",
 "li": [],
-"a": "",
+"a": "東京都中央区日本橋本町1-1-5",
 "src": "https://www.threads.com/@travelfish.jp/post/DfJ-BE6jyiG",
 "refs": [
 "https://www.threads.com/@travelfish.jp/post/DfJ-BE6jyiG"
 ],
 "ll": [
-35.684,
-139.7745
+35.685368,
+139.776306
 ],
-"ap": 1,
-"img": "images/DfJ-BE6jyiG.jpg"
+"ap": 0,
+"img": "images/DfJ-BE6jyiG.jpg",
+"tr": {
+"zh": {
+"n": "一人一鍋A5和牛壽喜燒（日本橋，¥1,500以下）",
+"d": "A5和牛、一人一鍋，不到¥1,500。留言找出店名：黒毛和牛とお出汁 日本橋いちり（三越前）。店小又熱門，請早點去。"
+},
+"ja": {
+"n": "黒毛和牛とお出汁 日本橋いちり",
+"d": "A5和牛のひとり鍋すき焼きが1,500円以下。コメントで店名が判明（三越前）。小さな人気店なので早めに。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"和牛、燒肉＆壽喜燒",
+"和牛・焼肉・すき焼き"
+],
+"h": {
+"en": "Daily 11:00–21:00 (last order 20:00) · irregular days off",
+"zh": "每日 11:00–21:00（最後點餐20:00）・不定休",
+"ja": "毎日 11:00–21:00（L.O.20:00）・不定休"
+},
+"cs": {
+"en": "A commenter identified it: 黒毛和牛とお出汁 日本橋いちり (Mitsukoshimae). Others: worth it, but tiny (10–12 seats), better for 1–2 people; one waited 1.5 hours; big slices are better than the small ones.",
+"zh": "有網友找出店名：黒毛和牛とお出汁 日本橋いちり（三越前）。其他留言：CP值高但很小（10–12席），適合1–2人；有人排了1.5小時；大片肉比小片好吃。",
+"ja": "コメントで店名判明：「黒毛和牛とお出汁 日本橋いちり」（三越前）。席は10〜12席と少なく1〜2人向き、1時間半待ちの声も。"
+},
+"tip": {
+"en": "No reservations. Queue before opening (11:00) or go mid-afternoon; avoid groups. Lunch ~¥1,000–2,000.",
+"zh": "不接受預約。開店（11:00）前去排或下午離峰去；不適合多人同行。午餐約¥1,000–2,000。",
+"ja": "予約不可。11時の開店前に並ぶか昼過ぎに。大人数は不向き。ランチ1,000〜2,000円。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1302/A130202/13315727/",
+"s": "3.37",
+"n": "128",
+"dn": "￥2,000～￥2,999",
+"ln": "￥1,000～￥1,999",
+"nm": "黒毛和牛とお出汁 日本橋いちり"
+},
+"r": 3.37,
+"p": 2000,
+"g": [
+"images/g/DfJ-BE6jyiG_1.jpg",
+"images/g/DfJ-BE6jyiG_2.jpg",
+"images/g/DfJ-BE6jyiG_3.jpg"
+],
+"ar": [
+"Nihonbashi",
+"日本橋",
+"日本橋",
+2
+]
 },
 {
 "id": 14,
@@ -500,7 +1360,68 @@ window.ITEMS=[
 "ap": 0,
 "pc": "www.timeout.jp",
 "pu": "https://www.timeout.jp/tokyo/ja/%E3%83%AC%E3%82%B9%E3%83%88%E3%83%A9%E3%83%B3/dotenoiseya",
-"img": "images/alt-iseya.jpg"
+"img": "images/alt-iseya.jpg",
+"tr": {
+"zh": {
+"n": "土手の伊勢屋（1889年創業天丼）",
+"d": "東京最古老的天丼店之一（1889年），建築是登錄有形文化財。排隊可能長達約2小時。"
+},
+"ja": {
+"n": "土手の伊勢屋",
+"d": "1889年創業、都内屈指の老舗天丼店。建物は登録有形文化財。最大2時間ほどの行列も。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"炸豬排、天婦羅＆日式料理",
+"とんかつ・天ぷら・和食"
+],
+"h": {
+"en": "11:00–14:00 · closed Tue & Wed",
+"zh": "11:00–14:00・週二、週三休",
+"ja": "11:00–14:00・火水休"
+},
+"cs": {
+"en": "Readers joke the queue is mostly retirees (\"old people have time\"). The author waited ~2 hours and says it was worth it.",
+"zh": "讀者笑說排隊的多是長輩（「老人時間多」）。作者排了約2小時，覺得值得。",
+"ja": "行列は年配の方が多いとの声。作者は約2時間並んで「待った甲斐あり」。"
+},
+"tip": {
+"en": "No reservations, lunch only (11:00–14:00), closed Tue/Wed. Queue ~30 min before opening; it can stop seating before 14:00 when rice runs out. Weekdays are shorter.",
+"zh": "不接受預約，只賣午餐（11:00–14:00），週二三休。建議開店前30分鐘排隊；飯賣完會提早停止入場。平日較短。",
+"ja": "予約不可・昼のみ（11〜14時）・火水休。開店30分前には並ぶのが安全。売り切れ次第早じまいあり。平日が狙い目。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1324/A132401/13003745/",
+"s": "3.70",
+"n": "1367",
+"dn": "-",
+"ln": "￥2,000～￥2,999",
+"nm": "土手の伊勢屋"
+},
+"r": 3.7,
+"p": 2000,
+"g": [
+"images/g/DfQeLZNFeDQ_1.jpg",
+"images/g/DfQeLZNFeDQ_2.jpg",
+"images/g/DfQeLZNFeDQ_3.jpg",
+"images/g/DfQeLZNFeDQ_4.jpg",
+"images/g/DfQeLZNFeDQ_5.jpg",
+"images/g/DfQeLZNFeDQ_6.jpg",
+"images/g/DfQeLZNFeDQ_7.jpg",
+"images/g/DfQeLZNFeDQ_8.jpg",
+"images/g/DfQeLZNFeDQ_9.jpg",
+"images/g/DfQeLZNFeDQ_10.jpg"
+],
+"ar": [
+"Minowa / Arakawa",
+"三之輪／荒川",
+"三ノ輪・荒川",
+18
+]
 },
 {
 "id": 15,
@@ -517,13 +1438,68 @@ window.ITEMS=[
 "https://www.threads.com/@easyrush/post/DfRYudEGSwY"
 ],
 "ll": [
-35.6705,
-139.717
+35.6488,
+139.7036
 ],
 "ap": 1,
 "pc": "www.timeout.jp",
 "pu": "https://www.timeout.jp/tokyo/ja/%E3%83%AC%E3%82%B9%E3%83%88%E3%83%A9%E3%83%B3/tempura-motoyoshi",
-"img": "images/alt-motoyoshi.jpg"
+"img": "images/alt-motoyoshi.jpg",
+"tr": {
+"zh": {
+"n": "天ぷら 元吉（米其林二星）",
+"d": "台北／新竹「元一」天婦羅的本店。份量多；當季有松茸天婦羅。評論者透過Palace Hotel禮賓訂位，覺得台北店一樣好吃。"
+},
+"ja": {
+"n": "天ぷら 元吉",
+"d": "台北・新竹「元一」の本店。量が多く、季節には松茸の天ぷらも。パレスホテルのコンシェルジュ経由で予約、台北店も同等との感想。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"Omakase 主廚套餐",
+"おまかせ"
+],
+"h": {
+"en": "Tue–Sat 17:30–22:30 · closed Sun & Mon",
+"zh": "週二至六 17:30–22:30・週日、週一休",
+"ja": "火〜土 17:30–22:30・日月休"
+},
+"cs": {
+"en": "Readers clear up which Taipei shop the author meant (Motoichi, not Kondo); some say hotel concierge picks are worth trusting; one praises the generous portions.",
+"zh": "讀者釐清作者說的台北店是「元一」不是近藤；有人說飯店推薦的要聽；也有人稱讚份量足、食材好。",
+"ja": "台北の店は「元一」のことと補足。ホテルのおすすめは聞くべきとの声、量が多く食材が良いとの評価。"
+},
+"tip": {
+"en": "8 counter seats, dinner only, Tabelog 4.06. Book through your hotel concierge or online well ahead; now in Daikanyama/Ebisu-nishi (moved from Minami-Aoyama).",
+"zh": "吧台8席，只有晚餐，Tabelog 4.06。請透過飯店禮賓或網路提早預約；已從南青山搬到代官山／惠比壽西。",
+"ja": "カウンター8席・夜のみ・食べログ4.06。ホテルのコンシェルジュかWEBで早めに予約。南青山から代官山（恵比寿西）へ移転済み。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1303/A130302/13270939/",
+"s": "4.06",
+"n": "153",
+"dn": "￥30,000～￥39,999",
+"ln": "-",
+"nm": "天ぷら 元吉"
+},
+"r": 4.06,
+"p": 30000,
+"g": [
+"images/g/DfRYudEGSwY_1.jpg",
+"images/g/DfRYudEGSwY_2.jpg",
+"images/g/DfRYudEGSwY_3.jpg",
+"images/g/DfRYudEGSwY_4.jpg"
+],
+"ar": [
+"Ebisu / Daikanyama",
+"惠比壽／代官山",
+"恵比寿・代官山",
+10
+]
 },
 {
 "id": 16,
@@ -549,7 +1525,56 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DfJIA9KHfkS.jpg"
+"img": "images/DfJIA9KHfkS.jpg",
+"tr": {
+"zh": {
+"n": "炸豬排口袋名單",
+"d": "作者在東京吃過的炸豬排店（✨＝最愛）。"
+},
+"ja": {
+"n": "とんかつリスト",
+"d": "作者が都内で食べたとんかつ店（✨＝お気に入り）。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"炸豬排、天婦羅＆日式料理",
+"とんかつ・天ぷら・和食"
+],
+"h": {
+"en": "Varies by shop",
+"zh": "依店家而異",
+"ja": "店舗により異なる"
+},
+"cs": {
+"en": "Readers add their own favourites: Tonkatsu Kenshin, Katsuyoshi, Maruichi (Kamata), Katsukami, Tonkatsu Katsura (Kokubunji), Tonta (Sendai). Sad news: 車力門ちゃわんぶ has closed. Tonkatsu JP lets you choose the fat ratio.",
+"zh": "讀者補充口袋名單：とんかつ憲進、かつ好、丸一（蒲田）、かつかみ、桂（國分寺）、豚太（仙台）。壞消息：車力門ちゃわんぶ已歇業。tonkatsu.jp 可以選肥瘦比例。",
+"ja": "読者のおすすめ追加：憲進、かつ好、丸一（蒲田）、かつかみ、かつら（国分寺）、豚太（仙台）。車力門ちゃわんぶは閉店。tonkatsu.jpは脂身の量を選べる。"
+},
+"tip": {
+"en": "Skip 車力門ちゃわんぶ (closed). Most top tonkatsu shops don't take bookings — go right at opening.",
+"zh": "車力門ちゃわんぶ已關店。多數名店不接受預約，開店就去最保險。",
+"ja": "車力門ちゃわんぶは閉店。名店の多くは予約不可なので開店直後に。"
+},
+"p": 2500,
+"pe": 1,
+"g": [
+"images/g/DfJIA9KHfkS_1.jpg",
+"images/g/DfJIA9KHfkS_2.jpg",
+"images/g/DfJIA9KHfkS_3.jpg",
+"images/g/DfJIA9KHfkS_4.jpg",
+"images/g/DfJIA9KHfkS_5.jpg",
+"images/g/DfJIA9KHfkS_6.jpg",
+"images/g/DfJIA9KHfkS_7.jpg",
+"images/g/DfJIA9KHfkS_8.jpg",
+"images/g/DfJIA9KHfkS_9.jpg",
+"images/g/DfJIA9KHfkS_10.jpg",
+"images/g/DfJIA9KHfkS_11.jpg"
+],
+"ar": null
 },
 {
 "id": 17,
@@ -572,7 +1597,64 @@ window.ITEMS=[
 "ap": 0,
 "pc": "www.timeout.jp",
 "pu": "https://www.timeout.jp/tokyo/ja/%E3%83%AC%E3%82%B9%E3%83%88%E3%83%A9%E3%83%B3/toritsune-shizendou",
-"img": "images/alt-toritsune.jpg"
+"img": "images/alt-toritsune.jpg",
+"tr": {
+"zh": {
+"n": "鳥つね 自然洞（親子丼）",
+"d": "評分4.3，超好吃的親子丼。在末廣町／湯島附近。"
+},
+"ja": {
+"n": "鳥つね 自然洞",
+"d": "評価4.3、絶品の親子丼。末広町・湯島エリア。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"炸豬排、天婦羅＆日式料理",
+"とんかつ・天ぷら・和食"
+],
+"h": {
+"en": "Mon–Sat 11:30–13:30, 17:30–22:00 (last order 21:00) · closed Sun & holidays",
+"zh": "週一至六 11:30–13:30、17:30–22:00（最後點餐21:00）・週日及假日休",
+"ja": "月〜土 11:30–13:30 / 17:30–22:00（L.O.21:00）・日祝休"
+},
+"cs": {
+"en": "Readers saving it for the next trip; one in Tokyo says they will try it next week. Same post also covers Afro Beats and EDW yellow.",
+"zh": "讀者紛紛收藏；有人人在東京說下週去吃。同篇也介紹Afro Beats和EDW yellow。",
+"ja": "保存する読者多数、来週行くという人も。同じ投稿でAfro Beats・EDW yellowも紹介。"
+},
+"tip": {
+"en": "Lunch is only 11:30–13:30 and the premium oyakodon is limited to 20 a day — arrive before opening. A Tabelog reviewer says just before 13:00 is quieter (but the premium may be gone). Dinner is a ¥15,000+ course.",
+"zh": "午餐只有11:30–13:30，特上親子丼每天限量20份——開店前到。Tabelog有人說13點前較空（但特上可能賣完）。晚餐是¥15,000起的套餐。",
+"ja": "ランチは11:30〜13:30のみ、特上親子丼は1日20食限定。開店前に到着を。13時前は空きやすいが特上は売り切れの可能性。夜は1.5万円〜のコース。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1311/A131101/13005547/",
+"s": "3.73",
+"n": "1683",
+"dn": "￥15,000～￥19,999",
+"ln": "￥2,000～￥2,999",
+"nm": "鳥つね自然洞"
+},
+"r": 3.73,
+"p": 15000,
+"g": [
+"images/g/DebzBHhCdJ5_1.jpg",
+"images/g/DebzBHhCdJ5_2.jpg",
+"images/g/DebzBHhCdJ5_3.jpg",
+"images/g/DebzBHhCdJ5_4.jpg",
+"images/g/DebzBHhCdJ5_5.jpg",
+"images/g/DebzBHhCdJ5_6.jpg"
+],
+"ar": [
+"Akihabara",
+"秋葉原",
+"秋葉原",
+7
+]
 },
 {
 "id": 18,
@@ -595,7 +1677,66 @@ window.ITEMS=[
 "ap": 0,
 "pc": "retty.me",
 "pu": "https://retty.me/restaurant/100000798975/",
-"img": "images/alt-sorano.jpg"
+"img": "images/alt-sorano.jpg",
+"tr": {
+"zh": {
+"n": "豆腐料理 空野 澀谷店",
+"d": "壽司拉麵吃膩了就來這裡：以豆腐為主的套餐，在櫻丘町（Cherry Garden 1F）。"
+},
+"ja": {
+"n": "豆腐料理 空野 渋谷",
+"d": "寿司やラーメンに飽きたら豆腐料理を。桜丘町チェリーガーデン1F。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"炸豬排、天婦羅＆日式料理",
+"とんかつ・天ぷら・和食"
+],
+"h": {
+"en": "Mon–Fri 17:00–22:45 · Sat 16:30–22:45 · Sun/holidays 16:30–22:30",
+"zh": "週一至五 17:00–22:45・週六 16:30–22:45・週日及假日 16:30–22:30",
+"ja": "月〜金 17:00–22:45・土 16:30–22:45・日祝 16:30–22:30"
+},
+"cs": {
+"en": "Readers ask how to book; one had a Japanese friend book a 2-person set — good food, young English-speaking staff. Another says the soy milk is as rich as espresso; one notes the \"sesame tofu\" has no soy.",
+"zh": "讀者問怎麼訂位；有人請日本朋友代訂2人套餐——好吃，店員年輕、英文不錯。也有人說豆乳濃得像espresso；有人提醒「芝麻豆腐」其實不含黃豆。",
+"ja": "予約方法の質問多数。日本の友人に2人コースを予約してもらい満足、英語OKの若いスタッフ。豆乳がエスプレッソ並みに濃いとの声。"
+},
+"tip": {
+"en": "Dinner only. Book ahead (weekends fill up early); courses need booking the day before. Tables are released 15 min after your slot.",
+"zh": "只有晚餐。建議提前訂位（週末很早就滿）；套餐需前一天預約。遲到15分鐘會被取消。",
+"ja": "夜のみ。週末は早く埋まるので予約推奨、コースは前日までに予約。15分遅れるとキャンセル扱い。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1303/A130301/13005182/",
+"s": "3.52",
+"n": "1056",
+"dn": "￥4,000～￥4,999",
+"ln": "-",
+"nm": "豆腐料理 空野 渋谷"
+},
+"r": 3.52,
+"p": 4000,
+"g": [
+"images/g/De18xTDJmef_1.jpg",
+"images/g/De18xTDJmef_2.jpg",
+"images/g/De18xTDJmef_3.jpg",
+"images/g/De18xTDJmef_4.jpg",
+"images/g/De18xTDJmef_5.jpg",
+"images/g/De18xTDJmef_6.jpg",
+"images/g/De18xTDJmef_7.jpg",
+"images/g/De18xTDJmef_8.jpg"
+],
+"ar": [
+"Shibuya",
+"澀谷",
+"渋谷",
+3
+]
 },
 {
 "id": 19,
@@ -618,14 +1759,72 @@ window.ITEMS=[
 "ap": 1,
 "pc": "EDW yellow Ikebukuro branch · retty.me",
 "pu": "https://retty.me/area/PRE13/ARE662/SUB66202/100001764483/",
-"img": "images/alt-edw.jpg"
+"img": "images/alt-edw.jpg",
+"tr": {
+"zh": {
+"n": "EDW yellow 澀谷（蛋包飯）",
+"d": "清單中被推薦兩次。「吃過最好吃的蛋包飯。」加點奶油螃蟹可樂餅；冰淇淋法式吐司必點。"
+},
+"ja": {
+"n": "ESPRESSO D WORKS yellow 渋谷（オムライス）",
+"d": "リストで2回推薦。「今までで一番のオムライス」。蟹クリームコロッケ追加、アイスのフレンチトーストは必食。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"炸豬排、天婦羅＆日式料理",
+"とんかつ・天ぷら・和食"
+],
+"h": {
+"en": "Daily 11:00–22:00 (last order 21:00) · closed 31 Dec–3 Jan",
+"zh": "每日 11:00–22:00（最後點餐21:00）・12/31–1/3休",
+"ja": "毎日 11:00–22:00（L.O.21:00）・12/31〜1/3休"
+},
+"cs": {
+"en": "Mixed: one says it's not that tasty and the room is stuffy; another says the Shibuya queue is endless and the Omotesando branch was disappointing. A tip: the Oimachi Tracks branch has shorter queues.",
+"zh": "評價兩極：有人覺得沒那麼好吃、空間悶；有人說澀谷店排到天荒地老，表參道分店也不如預期。小提示：大井町Tracks店排隊較短。",
+"ja": "賛否あり。「そこまで美味しくない・店内が狭い」「渋谷は大行列、表参道店は期待外れ」。大井町トラックス店は待ちが短めとの情報。"
+},
+"tip": {
+"en": "No reservations, cashless only. Queue before 11:00 or go mid-afternoon on a weekday; try the Oimachi Tracks or Shimokitazawa branch to wait less.",
+"zh": "不接受預約，只收無現金支付。11:00前排或平日下午去；想少排可改去大井町Tracks或下北澤分店。",
+"ja": "予約不可・キャッシュレスのみ。11時前に並ぶか平日の午後に。大井町・下北沢店は比較的空いている。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1303/A130301/13199237/",
+"s": "3.18",
+"n": "520",
+"dn": "￥2,000～￥2,999",
+"ln": "￥2,000～￥2,999",
+"nm": "ESPRESSO D' WORKS yellow"
+},
+"r": 3.18,
+"p": 2000,
+"g": [
+"images/g/DfMgbxkyxtg_1.jpg",
+"images/g/DfMgbxkyxtg_2.jpg",
+"images/g/DfMgbxkyxtg_3.jpg",
+"images/g/DfMgbxkyxtg_4.jpg",
+"images/g/DfMgbxkyxtg_5.jpg",
+"images/g/DfMgbxkyxtg_6.jpg",
+"images/g/DfMgbxkyxtg_7.jpg"
+],
+"ar": [
+"Shibuya",
+"澀谷",
+"渋谷",
+3
+]
 },
 {
 "id": 20,
 "c": "Eat",
 "s": "Tonkatsu, Tempura & Japanese",
 "n": "Yamamoto no Hamburg",
-"j": "山本のハンバーグ",
+"j": "山本のハンバーグ 渋谷食堂",
 "d": "Juicy, rich hamburg steak. The fresh green latte is excellent too.",
 "by": "@sunglin_0215",
 "li": [],
@@ -634,11 +1833,72 @@ window.ITEMS=[
 "refs": [
 "https://www.instagram.com/reel/DfMgbxkyxtg/"
 ],
-"ll": null,
-"ap": 0,
+"ll": [
+35.6595,
+139.699
+],
+"ap": 1,
 "pc": "retty.me",
 "pu": "https://retty.me/restaurant/100001282360/",
-"img": "images/alt-yamamoto.jpg"
+"img": "images/alt-yamamoto.jpg",
+"tr": {
+"zh": {
+"n": "山本のハンバーグ",
+"d": "多汁濃郁的漢堡排。現打綠拿鐵也很好喝。"
+},
+"ja": {
+"n": "山本のハンバーグ",
+"d": "ジューシーで濃厚なハンバーグ。グリーンラテも絶品。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"炸豬排、天婦羅＆日式料理",
+"とんかつ・天ぷら・和食"
+],
+"h": {
+"en": "Daily 11:00–22:00 (last order 21:30) · closed 31 Dec & 1 Jan",
+"zh": "每日 11:00–22:00（最後點餐21:30）・12/31、1/1休",
+"ja": "毎日 11:00–22:00（L.O.21:30）・12/31・1/1休"
+},
+"cs": {
+"en": "No comments specific to this shop (same 3-shop post as EDW yellow).",
+"zh": "沒有針對這家的留言（與EDW yellow同篇）。",
+"ja": "この店についてのコメントはなし。"
+},
+"tip": {
+"en": "Note: the original Ebisu shop is listed as closed on Tabelog — go to the Shibuya Shokudo branch (no reservations; free rice refills at lunch).",
+"zh": "注意：惠比壽本店在Tabelog已標示歇業——請去「渋谷食堂」分店（不接受預約；午餐白飯免費續）。",
+"ja": "恵比寿本店は食べログで閉店表示。「渋谷食堂」へ（予約不可、ランチはご飯おかわり無料）。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1303/A130301/13050761/",
+"s": "3.32",
+"n": "616",
+"dn": "￥1,000～￥1,999",
+"ln": "￥1,000～￥1,999",
+"nm": "山本のハンバーグ 渋谷食堂"
+},
+"r": 3.32,
+"p": 1000,
+"g": [
+"images/g/DfMgbxkyxtg_1.jpg",
+"images/g/DfMgbxkyxtg_2.jpg",
+"images/g/DfMgbxkyxtg_3.jpg",
+"images/g/DfMgbxkyxtg_4.jpg",
+"images/g/DfMgbxkyxtg_5.jpg",
+"images/g/DfMgbxkyxtg_6.jpg",
+"images/g/DfMgbxkyxtg_7.jpg"
+],
+"ar": [
+"Shibuya",
+"澀谷",
+"渋谷",
+3
+]
 },
 {
 "id": 21,
@@ -661,7 +1921,65 @@ window.ITEMS=[
 "ap": 1,
 "pc": "Illustrative photo · Wikimedia Commons: File:Gyutan teishoku.JPG (Captain76, Public domain)",
 "pu": "https://commons.wikimedia.org/wiki/File:Gyutan_teishoku.JPG",
-"img": "images/alt-gyutan.jpg"
+"img": "images/alt-gyutan.jpg",
+"tr": {
+"zh": {
+"n": "利久牛舌 新宿",
+"d": "仙台式炭烤牛舌，配山藥泥和牛尾湯：「完美組合」。"
+},
+"ja": {
+"n": "牛たん 利久 新宿",
+"d": "仙台式の牛たん焼き、とろろと牛テールスープで「完璧な組み合わせ」。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"炸豬排、天婦羅＆日式料理",
+"とんかつ・天ぷら・和食"
+],
+"h": {
+"en": "Mon–Fri 11:00–21:00 · Sat/Sun/holidays 11:00–22:00",
+"zh": "週一至五 11:00–21:00・週末及假日 11:00–22:00",
+"ja": "月〜金 11:00–21:00・土日祝 11:00–22:00"
+},
+"cs": {
+"en": "No comments specific to this shop.",
+"zh": "沒有針對這家的留言。",
+"ja": "この店についてのコメントはなし。"
+},
+"tip": {
+"en": "In Lumine EST 7F, Shinjuku Station. Bookable; queues peak 12:00–13:00 and 18:30–20:00. The \"tongue tasting set\" (salt + miso) is the classic order.",
+"zh": "在新宿車站Lumine EST 7樓。可預約；12:00–13:00、18:30–20:00人最多。經典點法是「牛舌味比べ定食」（鹽味＋味噌）。",
+"ja": "ルミネエスト新宿7F。予約可。12〜13時、18時半〜20時が混雑。定番は「牛たん味くらべ定食」。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1304/A130401/13155611/",
+"s": "3.14",
+"n": "200",
+"dn": "￥2,000～￥2,999",
+"ln": "-",
+"nm": "利久 ルミネエスト新宿店"
+},
+"r": 3.14,
+"p": 2000,
+"g": [
+"images/g/DfMgbxkyxtg_1.jpg",
+"images/g/DfMgbxkyxtg_2.jpg",
+"images/g/DfMgbxkyxtg_3.jpg",
+"images/g/DfMgbxkyxtg_4.jpg",
+"images/g/DfMgbxkyxtg_5.jpg",
+"images/g/DfMgbxkyxtg_6.jpg",
+"images/g/DfMgbxkyxtg_7.jpg"
+],
+"ar": [
+"Shinjuku",
+"新宿",
+"新宿",
+4
+]
 },
 {
 "id": 22,
@@ -682,7 +2000,52 @@ window.ITEMS=[
 139.7
 ],
 "ap": 1,
-"img": "images/DfMazm4krdj.jpg"
+"img": "images/DfMazm4krdj.jpg",
+"tr": {
+"zh": {
+"n": "新宿 關東煮（名古屋系）",
+"d": "「吃過最好吃的關東煮。」不用排隊、客人多是日本人，甜點也很棒。留言說是名古屋連鎖店。店名只在照片裡。"
+},
+"ja": {
+"n": "新宿のおでん店（名古屋系）",
+"d": "「人生最高のおでん」。待ちなし、客は日本人ばかり、デザートも美味。名古屋のチェーン店とのコメント。店名は写真のみ。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"炸豬排、天婦羅＆日式料理",
+"とんかつ・天ぷら・和食"
+],
+"h": {
+"en": "Not checked (shop name only in the photo)",
+"zh": "未確認（店名只在照片裡）",
+"ja": "未確認（店名は写真のみ）"
+},
+"cs": {
+"en": "It's a Nagoya chain with branches in Yurakucho, Ningyocho, Ikebukuro and Nippori; fans of each branch vouch for it, especially the chicken broth. Someone asks if booking is needed.",
+"zh": "這是名古屋連鎖店，有樂町、人形町、池袋、日暮里都有分店；各店粉絲都推，特別是雞湯底。有人問需不需要訂位。",
+"ja": "名古屋発のチェーンで有楽町・人形町・池袋・日暮里にも店舗あり。鶏だしが絶品との声。予約の要否を聞く人も。"
+},
+"tip": {
+"en": "No queue when the author went (all Japanese customers). Check the post photo for the shop name, then book via Google Maps if you are a group.",
+"zh": "作者去時不用排（客人都是日本人）。店名請看貼文照片，多人同行可用Google地圖預約。",
+"ja": "作者訪問時は待ちなし（客は日本人のみ）。店名は投稿写真で確認、大人数なら予約を。"
+},
+"p": 3000,
+"pe": 1,
+"g": [
+"images/g/DfMazm4krdj_1.jpg",
+"images/g/DfMazm4krdj_2.jpg"
+],
+"ar": [
+"Shinjuku",
+"新宿",
+"新宿",
+4
+]
 },
 {
 "id": 23,
@@ -705,7 +2068,62 @@ window.ITEMS=[
 "ap": 0,
 "pc": "www.timeout.jp",
 "pu": "https://www.timeout.jp/tokyo/ja/%E3%83%AC%E3%82%B9%E3%83%88%E3%83%A9%E3%83%B3/hanayamaudon-ginza",
-"img": "images/alt-hanayama.jpg"
+"img": "images/alt-hanayama.jpg",
+"tr": {
+"zh": {
+"n": "五代目 花山烏龍麵 銀座店",
+"d": "招牌「鬼ひも川」超寬烏龍麵。超級熱門：作者10:50開店前到，麵就已經發完。請非常早去。"
+},
+"ja": {
+"n": "五代目 花山うどん 銀座店",
+"d": "幅広の「鬼ひも川」が名物。大人気で、作者は開店前10:50着でも麺切れ。かなり早めに。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"拉麵、烏龍麵＆麵類",
+"ラーメン・うどん・麺"
+],
+"h": {
+"en": "Mon–Fri 11:00–15:30, 17:30–21:30 · Sat/Sun/holidays 11:00–16:00 (lunch only) · closes early when noodles sell out",
+"zh": "週一至五 11:00–15:30、17:30–21:30・週末及假日 11:00–16:00（只有午餐）・麵賣完提早結束",
+"ja": "月〜金 11:00–15:30 / 17:30–21:30・土日祝 11:00–16:00（昼のみ）・麺切れ次第終了"
+},
+"cs": {
+"en": "Real numbers from comments: a clinic upstairs says queue by ~9:30 for lunch; one person took ticket #53 at 10:40 and ate at 13:40. Tips: the Haneda Airport branch had no queue at 10:10, and the Nihonbashi branch takes dinner bookings.",
+"zh": "留言的實際狀況：樓上診所說想吃午餐要9:30左右就排；有人10:40拿到53號，13:40才吃到。小撇步：羽田機場店10:10去是第一組；日本橋店晚餐可預約。",
+"ja": "コメントの実例：上階のクリニックいわく昼は9時半には並ぶ必要あり。10:40に53番で食べられたのは13:40。羽田空港店は10:10で一番乗り、日本橋店は夜予約可。"
+},
+"tip": {
+"en": "No reservations; numbered tickets run out early. Queue by 9:30, or try weekday dinner (17:30), the Nihonbashi branch (dinner bookable) or the Haneda Airport branch.",
+"zh": "不接受預約，號碼牌很早就發完。9:30前去排，或改平日晚餐（17:30）、日本橋店（晚餐可訂）、羽田機場店。",
+"ja": "予約不可・整理券は早々に終了。9時半までに並ぶか、平日夜（17:30〜）、日本橋店（夜予約可）、羽田空港店へ。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1301/A130101/13200630/",
+"s": "3.64",
+"n": "1478",
+"dn": "￥3,000～￥3,999",
+"ln": "￥1,000～￥1,999",
+"nm": "五代目 花山うどん 銀座店"
+},
+"r": 3.64,
+"p": 3000,
+"g": [
+"images/g/DfLrDMuEu18_1.jpg",
+"images/g/DfLrDMuEu18_2.jpg",
+"images/g/DfLrDMuEu18_3.jpg",
+"images/g/DfLrDMuEu18_4.jpg"
+],
+"ar": [
+"Ginza",
+"銀座",
+"銀座",
+0
+]
 },
 {
 "id": 24,
@@ -728,7 +2146,62 @@ window.ITEMS=[
 "ap": 0,
 "pc": "retty.me",
 "pu": "https://retty.me/area/PRE13/ARE664/SUB2201/100001417892/",
-"img": "images/alt-mentomirai.jpg"
+"img": "images/alt-mentomirai.jpg",
+"tr": {
+"zh": {
+"n": "純手打ち 麺と未来（下北澤）",
+"d": "米其林推薦、Tabelog 3.77。手打麵比烏龍麵還寬，大蝦雲吞，炙燒叉燒飯只要¥300。平日11:30–14:30、17:30–21:00；週末及假日11:30–17:00或賣完為止。"
+},
+"ja": {
+"n": "純手打ち 麺と未来",
+"d": "ミシュラン掲載・食べログ3.77。うどんより太い手打ち麺、大きな海老ワンタン、炙りチャーシュー飯300円。平日11:30〜14:30 / 17:30〜21:00、土日祝11:30〜17:00（売切次第終了）。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"拉麵、烏龍麵＆麵類",
+"ラーメン・うどん・麺"
+],
+"h": {
+"en": "Mon–Fri 11:30–14:30, 17:30–21:00 · Sat/Sun/holidays 11:30–17:00 or until sold out · irregular days off",
+"zh": "週一至五 11:30–14:30、17:30–21:00・週末及假日 11:30–17:00或賣完為止・不定休",
+"ja": "月〜金 11:30–14:30 / 17:30–21:00・土日祝 11:30–17:00（売切次第終了）・不定休"
+},
+"cs": {
+"en": "No reader comments yet.",
+"zh": "目前沒有讀者留言。",
+"ja": "読者コメントはまだなし。"
+},
+"tip": {
+"en": "No reservations, only 7–9 seats. Weekends end when noodles sell out — arrive before 11:30. Check X/Instagram for surprise closures.",
+"zh": "不接受預約，只有7–9席。週末賣完就收——請在11:30前到。臨時店休請看X/IG公告。",
+"ja": "予約不可・7〜9席。土日祝は売り切れ次第終了なので11:30前に。臨時休業はSNSで確認。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1318/A131802/13221486/",
+"s": "3.77",
+"n": "2097",
+"dn": "～￥999",
+"ln": "～￥999",
+"nm": "純手打ち 麺と未来"
+},
+"r": 3.77,
+"p": 500,
+"g": [
+"images/g/DfPeX1VkXsM_1.jpg",
+"images/g/DfPeX1VkXsM_2.jpg",
+"images/g/DfPeX1VkXsM_3.jpg",
+"images/g/DfPeX1VkXsM_4.jpg"
+],
+"ar": [
+"Shimokitazawa",
+"下北澤",
+"下北沢",
+13
+]
 },
 {
 "id": 25,
@@ -744,11 +2217,71 @@ window.ITEMS=[
 "refs": [
 "https://www.instagram.com/p/DebzBHhCdJ5/"
 ],
-"ll": null,
-"ap": 0,
+"ll": [
+35.6885,
+139.711
+],
+"ap": 1,
 "pc": "www.timeout.jp",
 "pu": "https://www.timeout.jp/tokyo/ja/%E3%83%AC%E3%82%B9%E3%83%88%E3%83%A9%E3%83%B3/ramen-afro-beats",
-"img": "images/alt-afrobeats.jpg"
+"img": "images/alt-afrobeats.jpg",
+"tr": {
+"zh": {
+"n": "Ramen Afro Beats",
+"d": "評分4.4。很棒的雞白湯和醬油拉麵。"
+},
+"ja": {
+"n": "Ramen Afro Beats",
+"d": "評価4.4。鶏白湯と醤油ラーメンが絶品。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"拉麵、烏龍麵＆麵類",
+"ラーメン・うどん・麺"
+],
+"h": {
+"en": "Daily 11:00–14:30, 17:00–21:00",
+"zh": "每日 11:00–14:30、17:00–21:00",
+"ja": "毎日 11:00–14:30 / 17:00–21:00"
+},
+"cs": {
+"en": "\"Very unique,\" says one reader; others are saving it.",
+"zh": "有讀者說「很特別」；其他人在收藏。",
+"ja": "「とてもユニーク」との声、保存する人多数。"
+},
+"tip": {
+"en": "No reservations, cashless only, 12 counter seats. Weekday 14:00 or 17:00 sharp are the easiest times.",
+"zh": "不接受預約，只收無現金，吧台12席。平日14:00或17:00一開門最好排。",
+"ja": "予約不可・キャッシュレスのみ・カウンター12席。平日14時頃か17時の開店直後が狙い目。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1304/A130402/13282860/",
+"s": "3.74",
+"n": "1713",
+"dn": "￥1,000～￥1,999",
+"ln": "￥1,000～￥1,999",
+"nm": "Ramen Afro Beats"
+},
+"r": 3.74,
+"p": 1000,
+"g": [
+"images/g/DebzBHhCdJ5_1.jpg",
+"images/g/DebzBHhCdJ5_2.jpg",
+"images/g/DebzBHhCdJ5_3.jpg",
+"images/g/DebzBHhCdJ5_4.jpg",
+"images/g/DebzBHhCdJ5_5.jpg",
+"images/g/DebzBHhCdJ5_6.jpg"
+],
+"ar": [
+"Shinjuku",
+"新宿",
+"新宿",
+4
+]
 },
 {
 "id": 26,
@@ -771,7 +2304,63 @@ window.ITEMS=[
 "ap": 1,
 "pc": "retty.me",
 "pu": "https://retty.me/area/PRE13/ARE6/SUB604/100001736920/",
-"img": "images/alt-pizza400.jpg"
+"img": "images/alt-pizza400.jpg",
+"tr": {
+"zh": {
+"n": "400℃ PIZZA TOKYO（神樂坂）",
+"d": "Tabelog披薩百名店，在飯田橋／神樂坂附近。推薦：FNT、Neve（全白）、生火腿。輕鬆的氛圍，適合分享。"
+},
+"ja": {
+"n": "400℃ PIZZA TOKYO",
+"d": "飯田橋・神楽坂のピザ百名店。おすすめはFNT、Neve（ビアンカ）、生ハム。カジュアルでシェア向き。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"拉麵、烏龍麵＆麵類",
+"ラーメン・うどん・麺"
+],
+"h": {
+"en": "Daily 11:00–18:10 · irregular days off (check their Instagram)",
+"zh": "每日 11:00–18:10・不定休（請看官方IG）",
+"ja": "毎日 11:00–18:10・不定休（公式Instagramで確認）"
+},
+"cs": {
+"en": "A reader says Neve is only at this branch (not Shinagawa); the author confirms.",
+"zh": "讀者說Neve只有這家有（品川店沒有），作者也證實。",
+"ja": "Neveはこの店限定（品川店にはない）とのコメント、作者も同意。"
+},
+"tip": {
+"en": "Bookings open 2 days before at 12:00 (Tabelog Top 100, very popular). Walk-ins: morning numbered tickets — arrive before 11:00. The Shinagawa branch is an easier backup.",
+"zh": "來店前2天的12:00開放預約（Tabelog百名店，非常搶手）。現場候位：早上發號碼牌，11:00前到。品川分店較好訂。",
+"ja": "予約は来店2日前の12時から。当日は朝の整理券制なので11時前に。品川店も選択肢。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1309/A130905/13294495/",
+"s": "3.96",
+"n": "1386",
+"dn": "￥4,000～￥4,999",
+"ln": "￥4,000～￥4,999",
+"nm": "400℃ PIZZA TOKYO"
+},
+"r": 3.96,
+"p": 4000,
+"g": [
+"images/g/DfMQJ1TmVL__1.jpg",
+"images/g/DfMQJ1TmVL__2.jpg",
+"images/g/DfMQJ1TmVL__3.jpg",
+"images/g/DfMQJ1TmVL__4.jpg",
+"images/g/DfMQJ1TmVL__5.jpg"
+],
+"ar": [
+"Kagurazaka / Iidabashi",
+"神樂坂／飯田橋",
+"神楽坂・飯田橋",
+15
+]
 },
 {
 "id": 27,
@@ -794,7 +2383,66 @@ window.ITEMS=[
 "ap": 1,
 "pc": "retty.me",
 "pu": "https://retty.me/area/PRE13/ARE15/SUB1501/100001777683/",
-"img": "images/alt-bongen.jpg"
+"img": "images/alt-bongen.jpg",
+"tr": {
+"zh": {
+"n": "BONGEN COFFEE 日本橋店",
+"d": "知名「人生冰拿鐵」。可選濃度（一般／BONGEN／RICH）和四種烘焙。冰BONGEN拿鐵（深焙）¥990。比本店大；10點開門後盡快去。近日本橋／寶町／京橋站。"
+},
+"ja": {
+"n": "BONGEN COFFEE 日本橋店",
+"d": "「人生最高のアイスラテ」で話題。濃さ（通常／BONGEN／RICH）と4種の焙煎を選べる。アイスBONGENラテ（深煎り）990円。本店より広い。10時開店後すぐがおすすめ。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"咖啡廳",
+"カフェ・コーヒー"
+],
+"h": {
+"en": "10:00–17:00",
+"zh": "10:00–17:00",
+"ja": "10:00–17:00"
+},
+"cs": {
+"en": "Readers say the Ethiopian light roast is great too; another says Ginza is now very crowded. The author also recommends Mermaid Coffee and Sawamura Roastery (Karuizawa).",
+"zh": "讀者說衣索比亞淺焙也很好喝；有人說銀座店現在人超多。作者也推薦Mermaid Coffee和輕井澤的澤村烘焙。",
+"ja": "エチオピア浅煎りも美味しいとの声、銀座店は今とても混んでいるとも。作者は軽井沢の沢村ロースタリーも推薦。"
+},
+"tip": {
+"en": "No reservations. Go right at 10:00 — the Nihonbashi shop is roomier than the Ginza original (where people report 2-hour queues).",
+"zh": "不接受預約。10:00開門就去——日本橋店比銀座本店寬敞（本店有人排2小時）。",
+"ja": "予約不可。10時の開店直後に。銀座本店（2時間待ちの声も）より日本橋店の方が広い。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1302/A130203/13309113/",
+"s": "3.44",
+"n": "113",
+"dn": "-",
+"ln": "￥1,000～￥1,999",
+"nm": "BONGENCOFFEE TOKYO 日本橋店"
+},
+"r": 3.44,
+"p": 1000,
+"g": [
+"images/g/DfWnjHJFLzI_1.jpg",
+"images/g/DfWnjHJFLzI_2.jpg",
+"images/g/DfWnjHJFLzI_3.jpg",
+"images/g/DfWnjHJFLzI_4.jpg",
+"images/g/DfWnjHJFLzI_5.jpg",
+"images/g/DfWnjHJFLzI_6.jpg",
+"images/g/DfWnjHJFLzI_7.jpg",
+"images/g/DfWnjHJFLzI_8.jpg"
+],
+"ar": [
+"Nihonbashi",
+"日本橋",
+"日本橋",
+2
+]
 },
 {
 "id": 28,
@@ -817,14 +2465,68 @@ window.ITEMS=[
 "ap": 0,
 "pc": "www.timeout.jp",
 "pu": "https://www.timeout.jp/tokyo/ja/%E3%83%AC%E3%82%B9%E3%83%88%E3%83%A9%E3%83%B3/glitch-coffee-and-roasters",
-"img": "images/alt-glitch.jpg"
+"img": "images/alt-glitch.jpg",
+"tr": {
+"zh": {
+"n": "GLITCH COFFEE & ROASTERS",
+"d": "神保町的淺焙精品咖啡。咖啡豆是經典東京伴手禮。"
+},
+"ja": {
+"n": "グリッチコーヒー&ロースターズ",
+"d": "神保町の浅煎りスペシャルティ。豆は東京土産の定番。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"咖啡廳",
+"カフェ・コーヒー"
+],
+"h": {
+"en": "Mon–Fri 8:00–19:00 · Sat/Sun/holidays 9:00–19:00",
+"zh": "週一至五 8:00–19:00・週末及假日 9:00–19:00",
+"ja": "月〜金 8:00–19:00・土日祝 9:00–19:00"
+},
+"cs": {
+"en": "\"Pricey but really delicious.\" Several people bring beans home despite heavy luggage; one tip: swap a bottle for a bag to save weight.",
+"zh": "「不便宜但真的好喝」。好幾人行李超重也要帶豆子回家；小技巧：改買袋裝比較輕。",
+"ja": "「高いけど本当に美味しい」。荷物が重くても豆を持ち帰る人多数。瓶より袋の方が軽いという声。"
+},
+"tip": {
+"en": "No reservations, 16 seats. Mornings (8–9am weekdays) are quietest; beans sell out of popular origins later in the day.",
+"zh": "不接受預約，16席。平日早上8–9點最空；熱門產區豆子晚一點會賣完。",
+"ja": "予約不可・16席。平日朝8〜9時が空いている。人気の豆は夕方には品切れも。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1310/A131003/13180698/",
+"s": "3.67",
+"n": "699",
+"dn": "￥1,000～￥1,999",
+"ln": "￥1,000～￥1,999",
+"nm": "グリッチコーヒー&ロースターズ"
+},
+"r": 3.67,
+"p": 1000,
+"g": [
+"images/g/DfLzxk2k9rP_1.jpg",
+"images/g/DfLzxk2k9rP_2.jpg",
+"images/g/DfLzxk2k9rP_3.jpg"
+],
+"ar": [
+"Jimbocho / Kanda",
+"神保町／神田",
+"神保町・神田",
+16
+]
 },
 {
 "id": 29,
 "c": "Eat",
 "s": "Cafes & Coffee",
 "n": "Covert Coffee Roastery",
-"j": "Covert coffee roastery",
+"j": "COVERT COFFEE ROASTERY 紀伊國屋書店新宿本店",
 "d": "\"Better than Fuglen.\" Light-roast hand drip and the best banana bread (fluffy and buttery). The author went twice in one trip.",
 "by": "@kamanncarmenn",
 "li": [],
@@ -833,11 +2535,68 @@ window.ITEMS=[
 "refs": [
 "https://www.threads.com/@kamanncarmenn/post/DfLYcnKnyYI"
 ],
-"ll": null,
-"ap": 0,
+"ll": [
+35.6917,
+139.7036
+],
+"ap": 1,
 "pc": "www.timeout.jp",
 "pu": "https://www.timeout.jp/tokyo/ja/%E3%83%AC%E3%82%B9%E3%83%88%E3%83%A9%E3%83%B3/covert-coffee",
-"img": "images/alt-covert.jpg"
+"img": "images/alt-covert.jpg",
+"tr": {
+"zh": {
+"n": "COVERT COFFEE ROASTERY",
+"d": "「比Fuglen還好。」淺焙手沖，和最好吃的香蕉蛋糕（鬆軟奶油香）。作者一趟旅程去了兩次。"
+},
+"ja": {
+"n": "COVERT COFFEE ROASTERY",
+"d": "「Fuglenより好き」。浅煎りのハンドドリップと、ふわふわのバナナブレッドが絶品。作者は1回の旅で2度訪問。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"咖啡廳",
+"カフェ・コーヒー"
+],
+"h": {
+"en": "Mon–Fri 7:30–21:00 · Sat/Sun/holidays 9:00–21:00",
+"zh": "週一至五 7:30–21:00・週末及假日 9:00–21:00",
+"ja": "月〜金 7:30–21:00・土日祝 9:00–21:00"
+},
+"cs": {
+"en": "Mixed: one reader wants to try the banana cake next trip, another thinks it's average.",
+"zh": "評價分歧：有人下次想試香蕉蛋糕，也有人覺得普通。",
+"ja": "バナナケーキを試したいという人と「普通」という人で分かれる。"
+},
+"tip": {
+"en": "Coffee stand in Kinokuniya Shinjuku B1 (the main COVERT COFFEE café is nearby in Musashino Building B1, cashless). Banana bread can sell out by afternoon.",
+"zh": "在新宿紀伊國屋書店B1的咖啡站（本店COVERT COFFEE在附近武藏野大樓B1，只收無現金）。香蕉蛋糕下午可能賣完。",
+"ja": "紀伊國屋新宿本店B1のスタンド（本店は武蔵野ビルB1・キャッシュレス）。バナナブレッドは午後に売り切れることも。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1304/A130401/13311536/",
+"s": "3.23",
+"n": "57",
+"dn": "￥1,000～￥1,999",
+"ln": "￥1,000～￥1,999",
+"nm": "COVERT COFFEE ROASTERY"
+},
+"r": 3.23,
+"p": 1000,
+"g": [
+"images/g/DfLYcnKnyYI_1.jpg",
+"images/g/DfLYcnKnyYI_2.jpg",
+"images/g/DfLYcnKnyYI_3.jpg"
+],
+"ar": [
+"Shinjuku",
+"新宿",
+"新宿",
+4
+]
 },
 {
 "id": 30,
@@ -859,7 +2618,76 @@ window.ITEMS=[
 139.7955
 ],
 "ap": 1,
-"img": "images/DfLtAV6GI6A.jpg"
+"img": "images/DfLtAV6GI6A.jpg",
+"tr": {
+"zh": {
+"n": "八十八 淺草（抹茶）",
+"d": "抹茶飲品，加一球冰淇淋。也出現在另一份15家清單中。"
+},
+"ja": {
+"n": "八十八 浅草（抹茶）",
+"d": "抹茶ドリンクにアイスをトッピング。15店リストでも紹介。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"咖啡廳",
+"カフェ・コーヒー"
+],
+"h": {
+"en": "Daily 9:00–17:00",
+"zh": "每日 9:00–17:00",
+"ja": "毎日 9:00–17:00"
+},
+"cs": {
+"en": "Queue only ~10 min. Some find the matcha too light (\"just okay\"); a reader suggests IPPUKU & MATCHA in Nihonbashi for a stronger cup.",
+"zh": "排隊約10分鐘。有人覺得抹茶太淡（「普通」）；讀者推薦想喝濃的可去日本橋的IPPUKU & MATCHA。",
+"ja": "待ちは10分程度。抹茶が薄めという声もあり、濃いめなら日本橋のIPPUKU & MATCHAとの提案。"
+},
+"tip": {
+"en": "Tabelog lists it as 八十八 浅草, an old house behind Sumida Park. No reservations; go before noon to avoid the afternoon tourist peak.",
+"zh": "Tabelog名稱是「八十八 浅草」，在隅田公園後面的老屋。不接受預約；中午前去可避開下午觀光人潮。",
+"ja": "食べログ名「八十八 浅草」、隅田公園裏の古民家。予約不可、午後の混雑前の午前中がおすすめ。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1323/A132301/13280896/",
+"s": "3.45",
+"n": "201",
+"dn": "-",
+"ln": "￥1,000～￥1,999",
+"nm": "八十八 浅草"
+},
+"r": 3.45,
+"p": 1000,
+"g": [
+"images/g/DfLtAV6GI6A_1.jpg",
+"images/g/DfLtAV6GI6A_2.jpg",
+"images/g/DfLtAV6GI6A_3.jpg",
+"images/g/DfVrpymkw7Y_1.jpg",
+"images/g/DfVrpymkw7Y_2.jpg",
+"images/g/DfVrpymkw7Y_3.jpg",
+"images/g/DfVrpymkw7Y_4.jpg",
+"images/g/DfVrpymkw7Y_5.jpg",
+"images/g/DfVrpymkw7Y_6.jpg",
+"images/g/DfVrpymkw7Y_7.jpg",
+"images/g/DfVrpymkw7Y_8.jpg",
+"images/g/DfVrpymkw7Y_9.jpg",
+"images/g/DfVrpymkw7Y_10.jpg",
+"images/g/DfVrpymkw7Y_11.jpg",
+"images/g/DfVrpymkw7Y_12.jpg",
+"images/g/DfVrpymkw7Y_13.jpg",
+"images/g/DfVrpymkw7Y_14.jpg",
+"images/g/DfVrpymkw7Y_15.jpg"
+],
+"ar": [
+"Asakusa",
+"淺草",
+"浅草",
+5
+]
 },
 {
 "id": 31,
@@ -880,7 +2708,56 @@ window.ITEMS=[
 139.771
 ],
 "ap": 1,
-"img": "images/DfPYTxwCamS.jpg"
+"img": "images/DfPYTxwCamS.jpg",
+"tr": {
+"zh": {
+"n": "星巴克 日暮里",
+"d": "設計漂亮、空間寬敞的星巴克，有藝術展（作品可購買）。2杯飲料＋2份餐點約¥2,264。"
+},
+"ja": {
+"n": "スターバックス 日暮里",
+"d": "デザイン性の高い広々とした店舗。アート展示あり（購入可）。ドリンク2＋フード2で約2,264円。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"咖啡廳",
+"カフェ・コーヒー"
+],
+"h": {
+"en": "Not checked — usually around 7:00–22:00",
+"zh": "未確認——一般約7:00–22:00",
+"ja": "未確認（通常7:00–22:00前後）"
+},
+"cs": {
+"en": "No reader comments.",
+"zh": "沒有讀者留言。",
+"ja": "コメントなし。"
+},
+"tip": {
+"en": "Good rest stop between Yanaka and Ueno; quieter on weekday mornings.",
+"zh": "適合在谷中和上野之間歇腳；平日早上較空。",
+"ja": "谷中と上野の間の休憩に。平日朝が空いている。"
+},
+"p": 1100,
+"pe": 1,
+"g": [
+"images/g/DfPYTxwCamS_1.jpg",
+"images/g/DfPYTxwCamS_2.jpg",
+"images/g/DfPYTxwCamS_3.jpg",
+"images/g/DfPYTxwCamS_4.jpg",
+"images/g/DfPYTxwCamS_5.jpg",
+"images/g/DfPYTxwCamS_6.jpg"
+],
+"ar": [
+"Nippori / Yanaka",
+"日暮里／谷中",
+"日暮里・谷中",
+17
+]
 },
 {
 "id": 32,
@@ -901,7 +2778,82 @@ window.ITEMS=[
 139.764
 ],
 "ap": 1,
-"img": "images/DfVt1OHFV43.jpg"
+"img": "images/DfVt1OHFV43.jpg",
+"tr": {
+"zh": {
+"n": "LATTE ART MANIA GINZA（布丁＆拉花）",
+"d": "銀座安靜的咖啡店，主打布丁和拉花。"
+},
+"ja": {
+"n": "LATTE ART MANIA GINZA",
+"d": "プリンとラテアートが楽しめる銀座の落ち着いたカフェ。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"咖啡廳",
+"カフェ・コーヒー"
+],
+"h": {
+"en": "Daily 8:00–23:00",
+"zh": "每日 8:00–23:00",
+"ja": "毎日 8:00–23:00"
+},
+"cs": {
+"en": "Only the shop's own replies (latte art by a 4-time champion, 2 min from Higashi-Ginza).",
+"zh": "只有店家自己的回覆（4屆拉花冠軍、距東銀座站2分鐘）。",
+"ja": "店舗の返信のみ（4度の優勝歴を持つバリスタ、東銀座駅2分）。"
+},
+"tip": {
+"en": "No reservations. Open late (to 23:00) — evenings are calmer than weekend afternoons.",
+"zh": "不接受預約。營業到23:00——晚上比週末下午輕鬆。",
+"ja": "予約不可。23時まで営業、週末午後より夜が落ち着いている。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1301/A130101/13314952/",
+"s": "3.50",
+"n": "157",
+"dn": "￥2,000～￥2,999",
+"ln": "￥1,000～￥1,999",
+"nm": "LATTE ART MANIA GINZA"
+},
+"r": 3.5,
+"p": 2000,
+"g": [
+"images/g/DfVt1OHFV43_1.jpg",
+"images/g/DfVt1OHFV43_2.jpg",
+"images/g/DfVt1OHFV43_3.jpg",
+"images/g/DfVt1OHFV43_4.jpg",
+"images/g/DfVt1OHFV43_5.jpg",
+"images/g/DfVt1OHFV43_6.jpg",
+"images/g/DfVt1OHFV43_7.jpg",
+"images/g/DfVt1OHFV43_8.jpg",
+"images/g/DfVt1OHFV43_9.jpg",
+"images/g/DfVt1OHFV43_10.jpg",
+"images/g/DfVt1OHFV43_11.jpg",
+"images/g/DfVt1OHFV43_12.jpg",
+"images/g/DfVt1OHFV43_13.jpg",
+"images/g/DfVt1OHFV43_14.jpg",
+"images/g/DfVt1OHFV43_15.jpg",
+"images/g/DfVt1OHFV43_16.jpg",
+"images/g/DfVt1OHFV43_17.jpg",
+"images/g/DfVt1OHFV43_18.jpg",
+"images/g/DfVt1OHFV43_19.jpg",
+"images/g/DfVt1OHFV43_20.jpg",
+"images/g/DfVt1OHFV43_21.jpg",
+"images/g/DfVt1OHFV43_22.jpg",
+"images/g/DfVt1OHFV43_23.jpg",
+"images/g/DfVt1OHFV43_24.jpg"
+],
+"ar": [
+"Ginza",
+"銀座",
+"銀座",
+0
+]
 },
 {
 "id": 33,
@@ -919,7 +2871,66 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DfMl7avgGld.jpg"
+"img": "images/DfMl7avgGld.jpg",
+"tr": {
+"zh": {
+"n": "表參道咖啡店推薦",
+"d": "表參道推薦咖啡店清單。店名只在圖片裡，請打開貼文。"
+},
+"ja": {
+"n": "表参道のおすすめカフェ",
+"d": "表参道のおすすめコーヒー店リスト。店名は画像内なので投稿を開いて確認。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"咖啡廳",
+"カフェ・コーヒー"
+],
+"h": {
+"en": "Varies by shop",
+"zh": "依店家而異",
+"ja": "店舗により異なる"
+},
+"cs": {
+"en": "Mostly friends tagging each other; the poster (Latte Art Mania Tokyo, Gaienmae) thanks them.",
+"zh": "多是朋友互相標記；發文的Latte Art Mania Tokyo（外苑前）回覆感謝。",
+"ja": "友人タグ付けが中心。投稿者のLatte Art Mania Tokyo（外苑前）がお礼。"
+},
+"tip": {
+"en": "Open the post to read the shop names in the photos.",
+"zh": "打開貼文看照片裡的店名。",
+"ja": "投稿の写真で店名を確認。"
+},
+"p": 1200,
+"pe": 1,
+"g": [
+"images/g/DfMl7avgGld_1.jpg",
+"images/g/DfMl7avgGld_2.jpg",
+"images/g/DfMl7avgGld_3.jpg",
+"images/g/DfMl7avgGld_4.jpg",
+"images/g/DfMl7avgGld_5.jpg",
+"images/g/DfMl7avgGld_6.jpg",
+"images/g/DfMl7avgGld_7.jpg",
+"images/g/DfMl7avgGld_8.jpg",
+"images/g/DfMl7avgGld_9.jpg",
+"images/g/DfMl7avgGld_10.jpg",
+"images/g/DfMl7avgGld_11.jpg",
+"images/g/DfMl7avgGld_12.jpg",
+"images/g/DfMl7avgGld_13.jpg",
+"images/g/DfMl7avgGld_14.jpg",
+"images/g/DfMl7avgGld_15.jpg",
+"images/g/DfMl7avgGld_16.jpg",
+"images/g/DfMl7avgGld_17.jpg",
+"images/g/DfMl7avgGld_18.jpg",
+"images/g/DfMl7avgGld_19.jpg",
+"images/g/DfMl7avgGld_20.jpg",
+"images/g/DfMl7avgGld_21.jpg"
+],
+"ar": null
 },
 {
 "id": 34,
@@ -941,7 +2952,76 @@ window.ITEMS=[
 139.705872
 ],
 "ap": 0,
-"img": "images/Db2km16yfOI.jpg"
+"img": "images/Db2km16yfOI.jpg",
+"tr": {
+"zh": {
+"n": "Tas Yard（法式吐司）",
+"d": "「神級法式吐司。」平日11:30–18:00，假日11:30–19:00。Google 4.1。電話 +81 3-3470-3940。"
+},
+"ja": {
+"n": "タスヤード（フレンチトースト）",
+"d": "「神フレンチトースト」。平日11:30〜18:00、土日祝11:30〜19:00。Google 4.1。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"甜點＆麵包",
+"スイーツ・パン"
+],
+"h": {
+"en": "Mon–Fri 11:30–18:00 · Sat/Sun/holidays 11:30–19:00",
+"zh": "週一至五 11:30–18:00・週末及假日 11:30–19:00",
+"ja": "月〜金 11:30–18:00・土日祝 11:30–19:00"
+},
+"cs": {
+"en": "Jokes that it looks like steak with garlic chips; someone asks if booking is needed; a reader says the curry rice is good too.",
+"zh": "有人笑說看起來像牛排配蒜片；有人問要不要訂位；也有人說咖哩飯也好吃。",
+"ja": "「ステーキとガーリックチップに見える」という冗談、予約の要否の質問、カレーも美味しいとの声。"
+},
+"tip": {
+"en": "No reservations. The French toast is limited each day — go at opening (11:30) on a weekday to be sure.",
+"zh": "不接受預約。法式吐司每天限量——平日開店（11:30）就去最保險。",
+"ja": "予約不可。フレンチトーストは数量限定なので平日の開店直後に。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1306/A130601/13020498/",
+"s": "3.58",
+"n": "549",
+"dn": "￥2,000～￥2,999",
+"ln": "￥1,000～￥1,999",
+"nm": "タスヤード"
+},
+"r": 3.58,
+"p": 2000,
+"g": [
+"images/g/Db2km16yfOI_1.jpg",
+"images/g/Db2km16yfOI_2.jpg",
+"images/g/Db2km16yfOI_3.jpg",
+"images/g/Db2km16yfOI_4.jpg",
+"images/g/Db2km16yfOI_5.jpg",
+"images/g/DfM6lt-gcXa_1.jpg",
+"images/g/DfM6lt-gcXa_2.jpg",
+"images/g/DfM6lt-gcXa_3.jpg",
+"images/g/DfM6lt-gcXa_4.jpg",
+"images/g/DfM6lt-gcXa_5.jpg",
+"images/g/DfM6lt-gcXa_6.jpg",
+"images/g/DfM6lt-gcXa_7.jpg",
+"images/g/DfM6lt-gcXa_8.jpg",
+"images/g/DfM6lt-gcXa_9.jpg",
+"images/g/DfM6lt-gcXa_10.jpg",
+"images/g/DfM6lt-gcXa_11.jpg",
+"images/g/DfM6lt-gcXa_12.jpg",
+"images/g/DfM6lt-gcXa_13.jpg"
+],
+"ar": [
+"Yoyogi / Sendagaya",
+"代代木／千駄谷",
+"代々木・千駄ヶ谷",
+22
+]
 },
 {
 "id": 35,
@@ -968,7 +3048,58 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DfM6lt-gcXa.jpg"
+"img": "images/DfM6lt-gcXa.jpg",
+"tr": {
+"zh": {
+"n": "東京法式吐司清單",
+"d": "作者吃過的法式吐司店，加上兩家還沒吃到的（path、Unison Tailor 人形町）。"
+},
+"ja": {
+"n": "東京フレンチトーストリスト",
+"d": "作者が食べた店と、行きたい2店（path、Unison Tailor 人形町）。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"甜點＆麵包",
+"スイーツ・パン"
+],
+"h": {
+"en": "Varies by shop",
+"zh": "依店家而異",
+"ja": "店舗により異なる"
+},
+"cs": {
+"en": "Author's picks: caramel lovers → PREMIER MAI / Tas Yard; soft & custardy → No.4; balanced → i2 cafe / Nagi. Readers rave about No.4 (go early) and i2; Path also recommended; 繁邦 gets mixed reviews.",
+"zh": "作者推薦：喜歡焦糖→PREMIER MAI／Tas Yard；喜歡軟嫩→No.4；平衡型→i2 cafe／Nagi。讀者大推No.4（要早去）和i2；也有人推Path；繁邦評價兩極。",
+"ja": "作者の推し：キャラメル派→PREMIER MAI / Tas Yard、しっとり派→No.4、バランス→i2 cafe / Nagi。No.4（早めに）とi2が好評、繁邦は賛否。"
+},
+"tip": {
+"en": "No.4 (Yoyogi-Uehara) queues early in the morning — go at opening.",
+"zh": "No.4（代代木上原）早上就排隊——開門就去。",
+"ja": "No.4（代々木上原）は朝から行列、開店直後に。"
+},
+"p": 1800,
+"pe": 1,
+"g": [
+"images/g/DfM6lt-gcXa_1.jpg",
+"images/g/DfM6lt-gcXa_2.jpg",
+"images/g/DfM6lt-gcXa_3.jpg",
+"images/g/DfM6lt-gcXa_4.jpg",
+"images/g/DfM6lt-gcXa_5.jpg",
+"images/g/DfM6lt-gcXa_6.jpg",
+"images/g/DfM6lt-gcXa_7.jpg",
+"images/g/DfM6lt-gcXa_8.jpg",
+"images/g/DfM6lt-gcXa_9.jpg",
+"images/g/DfM6lt-gcXa_10.jpg",
+"images/g/DfM6lt-gcXa_11.jpg",
+"images/g/DfM6lt-gcXa_12.jpg",
+"images/g/DfM6lt-gcXa_13.jpg"
+],
+"ar": null
 },
 {
 "id": 36,
@@ -991,7 +3122,63 @@ window.ITEMS=[
 "ap": 0,
 "pc": "retty.me",
 "pu": "https://retty.me/area/PRE13/ARE665/SUB2001/100001806967/",
-"img": "images/alt-halsbagel.jpg"
+"img": "images/alt-halsbagel.jpg",
+"tr": {
+"zh": {
+"n": "HAL'S BAGEL. 自由之丘店",
+"d": "「貝果主題樂園」，每天現烤33種Q彈貝果，還有聖誕口味（覆盆子可可、雪摩卡）。紅絲絨¥580、焦糖布蕾¥530。營業10:00–18:00；要排隊。"
+},
+"ja": {
+"n": "HAL'S BAGEL. 自由が丘店",
+"d": "33種のもちもちベーグルを毎日焼く「ベーグルのテーマパーク」。クリスマス限定も。レッドベルベット580円、キャラメルブリュレ530円。10:00〜18:00、行列あり。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"甜點＆麵包",
+"スイーツ・パン"
+],
+"h": {
+"en": "Daily 10:00–18:00 · closed 29 Dec–3 Jan",
+"zh": "每日 10:00–18:00・12/29–1/3休",
+"ja": "毎日 10:00–18:00・12/29〜1/3休"
+},
+"cs": {
+"en": "Only Japanese food accounts saying they want to try it.",
+"zh": "只有日本美食帳號說想去試。",
+"ja": "「食べてみたい」という日本のアカウントのみ。"
+},
+"tip": {
+"en": "Takeaway only with limited entry. Weekday late-morning queues ~30 min; Christmas flavours sell out first, so go at 10:00.",
+"zh": "只能外帶、限制入場人數。平日上午排約30分鐘；聖誕限定口味最先賣完，10:00去。",
+"ja": "テイクアウトのみ・入場制限あり。平日昼前で約30分待ち。クリスマス限定は早く売り切れるので10時に。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1317/A131703/13315920/",
+"s": "3.50",
+"n": "244",
+"dn": "-",
+"ln": "～￥999",
+"nm": "HAL'S BAGEL. 自由が丘店"
+},
+"r": 3.5,
+"p": 500,
+"g": [
+"images/g/DfRvjdhjUNM_1.jpg",
+"images/g/DfRvjdhjUNM_2.jpg",
+"images/g/DfRvjdhjUNM_3.jpg",
+"images/g/DfRvjdhjUNM_4.jpg",
+"images/g/DfRvjdhjUNM_5.jpg"
+],
+"ar": [
+"Jiyugaoka",
+"自由之丘",
+"自由が丘",
+14
+]
 },
 {
 "id": 37,
@@ -1014,7 +3201,70 @@ window.ITEMS=[
 "ap": 1,
 "pc": "retty.me",
 "pu": "https://retty.me/area/PRE13/ARE14/SUB1401/100000859825/",
-"img": "images/alt-atelierpain.jpg"
+"img": "images/alt-atelierpain.jpg",
+"tr": {
+"zh": {
+"n": "L'Atelier du Pain 六本木",
+"d": "Tabelog麵包百名店。必買No.1六本木鹽麵包（濕潤有彈性）和可頌。鄉村麵包只有週末賣。"
+},
+"ja": {
+"n": "ラトリエ・デュ・パン 六本木",
+"d": "食べログパン百名店。人気No.1の六本木塩パン（しっとりもちもち）とクロワッサンを。カンパーニュは週末限定。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"甜點＆麵包",
+"スイーツ・パン"
+],
+"h": {
+"en": "Mon–Fri 7:30–22:00 · Sat/Sun/holidays 9:00–22:00",
+"zh": "週一至五 7:30–22:00・週末及假日 9:00–22:00",
+"ja": "月〜金 7:30–22:00・土日祝 9:00–22:00"
+},
+"cs": {
+"en": "A reader went to the Oimachi branch; another thanks the author.",
+"zh": "有讀者去了大井町分店；其他人致謝。",
+"ja": "大井町店に行ったという人、お礼のコメント。"
+},
+"tip": {
+"en": "Roppongi salt bread comes out about 5 times a day — ask staff for the next batch time. Weekend-only country loaf.",
+"zh": "六本木鹽麵包一天出爐約5次——可問店員下一批時間。鄉村麵包只有週末賣。",
+"ja": "六本木塩パンは1日約5回焼き上がり。次の時間は店員に。カンパーニュは週末限定。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1307/A130701/13147689/",
+"s": "3.78",
+"n": "2289",
+"dn": "～￥999",
+"ln": "～￥999",
+"nm": "ラトリエ･デュ･パン"
+},
+"r": 3.78,
+"p": 500,
+"g": [
+"images/g/DfOZ9tYIymq_1.jpg",
+"images/g/DfOZ9tYIymq_2.jpg",
+"images/g/DfOZ9tYIymq_3.jpg",
+"images/g/DfOZ9tYIymq_4.jpg",
+"images/g/DfOZ9tYIymq_5.jpg",
+"images/g/DfOZ9tYIymq_6.jpg",
+"images/g/DfOZ9tYIymq_7.jpg",
+"images/g/DfOZ9tYIymq_8.jpg",
+"images/g/DfOZ9tYIymq_9.jpg",
+"images/g/DfOZ9tYIymq_10.jpg",
+"images/g/DfOZ9tYIymq_11.jpg",
+"images/g/DfOZ9tYIymq_12.jpg"
+],
+"ar": [
+"Roppongi / Azabu",
+"六本木／麻布",
+"六本木・麻布",
+9
+]
 },
 {
 "id": 38,
@@ -1035,7 +3285,78 @@ window.ITEMS=[
 139.765594
 ],
 "ap": 0,
-"img": "images/DfRDQ3OEug7.jpg"
+"img": "images/DfRDQ3OEug7.jpg",
+"tr": {
+"zh": {
+"n": "noix de beurre（銀座三越B2）",
+"d": "現烤費南雪（外脆內軟），還有泡芙、蒙布朗、草莓塔。禮盒很適合送人。出自東京甜點合輯貼文。"
+},
+"ja": {
+"n": "ノワ・ドゥ・ブール 銀座三越店",
+"d": "焼きたてフィナンシェ（外はカリッと中はしっとり）、シュー、モンブラン、苺タルト。ギフトにも。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"甜點＆麵包",
+"スイーツ・パン"
+],
+"h": {
+"en": "10:00–20:00 (follows Ginza Mitsukoshi; closed 1 Jan)",
+"zh": "10:00–20:00（依銀座三越；元旦休）",
+"ja": "10:00–20:00（銀座三越に準ずる・元日休）"
+},
+"cs": {
+"en": "A reader saved it. The post is a dessert round-up with a tourist-coupon plug.",
+"zh": "有讀者收藏。原文是甜點合輯並附觀光客優惠券廣告。",
+"ja": "保存した人のみ。投稿はスイーツまとめ（観光客クーポンの宣伝付き）。"
+},
+"tip": {
+"en": "Fresh-baked financiers (~¥270 each) have a queue at peak times — weekday mornings are quickest. Show your passport for Mitsukoshi's 5% tourist discount.",
+"zh": "現烤費南雪（每個約¥270）尖峰時段要排隊——平日早上最快。出示護照可享三越觀光客5%折扣。",
+"ja": "焼きたてフィナンシェ（1個約270円）はピーク時行列、平日朝が早い。パスポート提示で三越の5%優待。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1301/A130101/13250832/",
+"s": "3.63",
+"n": "477",
+"dn": "～￥999",
+"ln": "-",
+"nm": "ノワ・ドゥ・ブール 銀座三越店"
+},
+"r": 3.63,
+"p": 500,
+"g": [
+"images/g/DfRDQ3OEug7_1.jpg",
+"images/g/DfRDQ3OEug7_2.jpg",
+"images/g/DfRDQ3OEug7_3.jpg",
+"images/g/DfRDQ3OEug7_4.jpg",
+"images/g/DfRDQ3OEug7_5.jpg",
+"images/g/DfRDQ3OEug7_6.jpg",
+"images/g/DfRDQ3OEug7_7.jpg",
+"images/g/DfRDQ3OEug7_8.jpg",
+"images/g/DfRDQ3OEug7_9.jpg",
+"images/g/DfRDQ3OEug7_10.jpg",
+"images/g/DfRDQ3OEug7_11.jpg",
+"images/g/DfRDQ3OEug7_12.jpg",
+"images/g/DfRDQ3OEug7_13.jpg",
+"images/g/DfRDQ3OEug7_14.jpg",
+"images/g/DfRDQ3OEug7_15.jpg",
+"images/g/DfRDQ3OEug7_16.jpg",
+"images/g/DfRDQ3OEug7_17.jpg",
+"images/g/DfRDQ3OEug7_18.jpg",
+"images/g/DfRDQ3OEug7_19.jpg",
+"images/g/DfRDQ3OEug7_20.jpg"
+],
+"ar": [
+"Ginza",
+"銀座",
+"銀座",
+0
+]
 },
 {
 "id": 39,
@@ -1056,7 +3377,69 @@ window.ITEMS=[
 139.7671
 ],
 "ap": 1,
-"img": "images/DfOC7LAn7Au.jpg"
+"img": "images/DfOC7LAn7Au.jpg",
+"tr": {
+"zh": {
+"n": "東京車站布丁塔",
+"d": "「人生布丁塔」，只在東京車站內販售。每天出爐兩次：平日9:30、17:00；週末及假日9:00、17:00。店名只在照片裡。"
+},
+"ja": {
+"n": "東京駅のプリンタルト",
+"d": "東京駅限定の「人生最高」のプリンタルト。1日2回焼き上がり：平日9:30・17:00、土日祝9:00・17:00。店名は写真のみ。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"甜點＆麵包",
+"スイーツ・パン"
+],
+"h": {
+"en": "Baked at 9:30 & 17:00 on weekdays, 9:00 & 17:00 on weekends/holidays",
+"zh": "平日 9:30、17:00出爐；週末及假日 9:00、17:00",
+"ja": "平日9:30 / 17:00、土日祝9:00 / 17:00に焼き上がり"
+},
+"cs": {
+"en": "Real tip from comments: a buyer queued for a numbered ticket about 1 hour early and got #2. Boxes of 3 only (no big box); the cool bag is nice. Some find it very sweet; the station is hard to navigate.",
+"zh": "留言實用資訊：有人提前約1小時去拿整理券，拿到2號。只有3入盒（沒有大盒），保冷袋質感好。有人覺得很甜；車站很大不好找。",
+"ja": "コメントより：約1時間前に整理券を取りに行き2番だった人も。3個入りのみ、保冷バッグ付き。とても甘いとの声、駅構内で迷いやすい。"
+},
+"tip": {
+"en": "Get the numbered ticket ~1 hour before a bake time (9:00/9:30 or 17:00). Sold in boxes of 3. Only sold here — plan it for your last day if it's a gift.",
+"zh": "出爐前約1小時去拿整理券（9:00/9:30或17:00）。3入一盒販售。只有這裡買得到——當伴手禮可排在最後一天。",
+"ja": "焼き上がりの約1時間前に整理券を（9:00/9:30・17:00）。3個入り。ここ限定なので土産なら最終日に。"
+},
+"p": 1500,
+"pe": 1,
+"g": [
+"images/g/DfOC7LAn7Au_1.jpg",
+"images/g/DfOC7LAn7Au_2.jpg",
+"images/g/DfOC7LAn7Au_3.jpg",
+"images/g/DfOC7LAn7Au_4.jpg",
+"images/g/DfOC7LAn7Au_5.jpg",
+"images/g/DfOC7LAn7Au_6.jpg",
+"images/g/DfOC7LAn7Au_7.jpg",
+"images/g/DfOC7LAn7Au_8.jpg",
+"images/g/DfOC7LAn7Au_9.jpg",
+"images/g/DfOC7LAn7Au_10.jpg",
+"images/g/DfOC7LAn7Au_11.jpg",
+"images/g/DfOC7LAn7Au_12.jpg",
+"images/g/DfOC7LAn7Au_13.jpg",
+"images/g/DfOC7LAn7Au_14.jpg",
+"images/g/DfOC7LAn7Au_15.jpg",
+"images/g/DfOC7LAn7Au_16.jpg",
+"images/g/DfOC7LAn7Au_17.jpg",
+"images/g/DfOC7LAn7Au_18.jpg",
+"images/g/DfOC7LAn7Au_19.jpg"
+],
+"ar": [
+"Tokyo Stn / Marunouchi",
+"東京站／丸之內",
+"東京駅・丸の内",
+1
+]
 },
 {
 "id": 40,
@@ -1074,7 +3457,56 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DfO0NoloCf-.jpg"
+"img": "images/DfO0NoloCf-.jpg",
+"tr": {
+"zh": {
+"n": "HERE! tokyo 水果蛋糕",
+"d": "出自「東京一人食」照片合輯：層層鮮果蛋糕。地點標記：HERE! tokyo。"
+},
+"ja": {
+"n": "HERE! tokyo のフルーツケーキ",
+"d": "「東京ひとりごはん」より、フルーツたっぷりのケーキ。位置タグ：HERE! tokyo。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"甜點＆麵包",
+"スイーツ・パン"
+],
+"h": {
+"en": "Not checked",
+"zh": "未確認",
+"ja": "未確認"
+},
+"cs": {
+"en": "A reader warns Google rates it 2.9; the author says they were happy with the first four places. The chestnut crêpe is from Afternoon Tea LOVE & TABLE.",
+"zh": "有讀者提醒Google評分只有2.9；作者說前四家都很滿意。栗子班戟是Afternoon Tea LOVE & TABLE的。",
+"ja": "Googleの評価が2.9との指摘、作者は最初の4店に満足とのこと。栗のクレープはAfternoon Tea LOVE & TABLE。"
+},
+"tip": {
+"en": "Low ratings on Google — go if you are nearby rather than as a special trip.",
+"zh": "Google評分偏低——順路再去就好。",
+"ja": "Google評価が低めなので、近くに行ったついでに。"
+},
+"p": 1500,
+"pe": 1,
+"g": [
+"images/g/DfO0NoloCf-_1.jpg",
+"images/g/DfO0NoloCf-_2.jpg",
+"images/g/DfO0NoloCf-_3.jpg",
+"images/g/DfO0NoloCf-_4.jpg",
+"images/g/DfO0NoloCf-_5.jpg",
+"images/g/DfO0NoloCf-_6.jpg",
+"images/g/DfO0NoloCf-_7.jpg",
+"images/g/DfO0NoloCf-_8.jpg",
+"images/g/DfO0NoloCf-_9.jpg",
+"images/g/DfO0NoloCf-_10.jpg",
+"images/g/DfO0NoloCf-_11.jpg"
+],
+"ar": null
 },
 {
 "id": 41,
@@ -1097,7 +3529,67 @@ window.ITEMS=[
 "ap": 1,
 "pc": "Illustrative photo · www.mapple.net",
 "pu": "https://www.mapple.net/original/510206/",
-"img": "images/alt-medel.jpg"
+"img": "images/alt-medel.jpg",
+"tr": {
+"zh": {
+"n": "medel deli 惠比壽（巴西莓碗＆優格碗）",
+"d": "配料很有誠意的巴西莓碗和優格碗，漢堡和奶昔也沒負擔。出自惠比壽5家愛店清單。"
+},
+"ja": {
+"n": "medel deli（恵比寿）",
+"d": "具だくさんのアサイーボウル・ヨーグルトボウル、ヘルシーなバーガーやシェイクも。恵比寿のお気に入り5店より。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"甜點＆麵包",
+"スイーツ・パン"
+],
+"h": {
+"en": "Mon–Sat 9:00–19:00 · Sun/holidays 10:00–19:00",
+"zh": "週一至六 9:00–19:00・週日及假日 10:00–19:00",
+"ja": "月〜土 9:00–19:00・日祝 10:00–19:00"
+},
+"cs": {
+"en": "Readers saving the Ebisu list; one says Tofu Shokudo (same post) is spotless.",
+"zh": "讀者收藏惠比壽清單；有人說同篇的豆富食堂很乾淨。",
+"ja": "恵比寿リストを保存する読者多数。同投稿の豆富食堂は清潔との声。"
+},
+"tip": {
+"en": "No reservations; nearest station is Daikanyama (5 min). Brunch hours on weekends are busiest.",
+"zh": "不接受預約；最近是代官山站（5分鐘）。週末早午餐時段最多人。",
+"ja": "予約不可・最寄りは代官山駅（徒歩5分）。週末のブランチ時が混雑。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1303/A130302/13277123/",
+"s": "3.47",
+"n": "178",
+"dn": "-",
+"ln": "￥2,000～￥2,999",
+"nm": "medel deli"
+},
+"r": 3.47,
+"p": 2000,
+"g": [
+"images/g/DfLx7nju5RZ_1.jpg",
+"images/g/DfLx7nju5RZ_2.jpg",
+"images/g/DfLx7nju5RZ_3.jpg",
+"images/g/DfLx7nju5RZ_4.jpg",
+"images/g/DfLx7nju5RZ_5.jpg",
+"images/g/DfLx7nju5RZ_6.jpg",
+"images/g/DfLx7nju5RZ_7.jpg",
+"images/g/DfLx7nju5RZ_8.jpg",
+"images/g/DfLx7nju5RZ_9.jpg"
+],
+"ar": [
+"Ebisu / Daikanyama",
+"惠比壽／代官山",
+"恵比寿・代官山",
+10
+]
 },
 {
 "id": 42,
@@ -1120,7 +3612,67 @@ window.ITEMS=[
 "ap": 1,
 "pc": "retty.me",
 "pu": "https://retty.me/restaurant/100001606852/",
-"img": "images/alt-tofushokudo.jpg"
+"img": "images/alt-tofushokudo.jpg",
+"tr": {
+"zh": {
+"n": "豆富食堂 惠比壽",
+"d": "人氣豆腐定食：一大塊滷得入味的豆腐配清爽高湯，附豆乳甜點。"
+},
+"ja": {
+"n": "豆富食堂（恵比寿）",
+"d": "人気の豆腐定食。だしで煮込んだ大きな豆腐と豆乳デザート。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"炸豬排、天婦羅＆日式料理",
+"とんかつ・天ぷら・和食"
+],
+"h": {
+"en": "Mon–Sat 11:30–14:30, 17:00–23:00 · Sun 11:30–14:30, 17:00–22:00",
+"zh": "週一至六 11:30–14:30、17:00–23:00・週日 11:30–14:30、17:00–22:00",
+"ja": "月〜土 11:30–14:30 / 17:00–23:00・日 11:30–14:30 / 17:00–22:00"
+},
+"cs": {
+"en": "\"Very clean, really like it\" (10 likes).",
+"zh": "「非常乾淨，真的很喜歡」（10個讚）。",
+"ja": "「とても清潔で大好き」（10いいね）。"
+},
+"tip": {
+"en": "Cashless only. Bookable (5+ by phone); lunch tofu-meshi sets queue at noon — go at 11:30. Dinner omakase course ¥4,840.",
+"zh": "只收無現金。可預約（5人以上請電話）；午餐豆腐飯12點會排隊——11:30去。晚餐主廚套餐¥4,840。",
+"ja": "キャッシュレスのみ。予約可（5名以上は電話）。ランチの豆腐めしは正午に行列、11:30に。夜のおまかせ4,840円。"
+},
+"tb": {
+"u": "https://tabelog.com/tokyo/A1303/A130302/13265410/",
+"s": "3.49",
+"n": "1198",
+"dn": "￥4,000～￥4,999",
+"ln": "￥1,000～￥1,999",
+"nm": "豆富食堂"
+},
+"r": 3.49,
+"p": 4000,
+"g": [
+"images/g/DfLx7nju5RZ_1.jpg",
+"images/g/DfLx7nju5RZ_2.jpg",
+"images/g/DfLx7nju5RZ_3.jpg",
+"images/g/DfLx7nju5RZ_4.jpg",
+"images/g/DfLx7nju5RZ_5.jpg",
+"images/g/DfLx7nju5RZ_6.jpg",
+"images/g/DfLx7nju5RZ_7.jpg",
+"images/g/DfLx7nju5RZ_8.jpg",
+"images/g/DfLx7nju5RZ_9.jpg"
+],
+"ar": [
+"Ebisu / Daikanyama",
+"惠比壽／代官山",
+"恵比寿・代官山",
+10
+]
 },
 {
 "id": 43,
@@ -1140,7 +3692,54 @@ window.ITEMS=[
 "ap": 0,
 "pc": "retty.me",
 "pu": "https://retty.me/area/PRE13/ARE7/SUB701/100001757527/",
-"img": "images/alt-verve.jpg"
+"img": "images/alt-verve.jpg",
+"tr": {
+"zh": {
+"n": "Verve Coffee Roasters",
+"d": "很棒的淺焙手沖和燕麥脆片。福利：買一包咖啡豆送一杯現煮咖啡（任選手沖）。"
+},
+"ja": {
+"n": "Verve Coffee Roasters",
+"d": "浅煎りのハンドドリップとグラノーラが絶品。豆を買うとドリップ1杯無料。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"咖啡廳",
+"カフェ・コーヒー"
+],
+"h": {
+"en": "Not checked (several Tokyo branches; Ebisu one in the post)",
+"zh": "未確認（東京有多家；貼文是惠比壽店）",
+"ja": "未確認（都内複数店、投稿は恵比寿）"
+},
+"cs": {
+"en": "No comments specific to this shop.",
+"zh": "沒有針對這家的留言。",
+"ja": "この店についてのコメントはなし。"
+},
+"tip": {
+"en": "Buy a bag of beans and you get a free brewed coffee — any pour-over, even the priciest.",
+"zh": "買一包咖啡豆就送一杯現煮咖啡——最貴的手沖也可以。",
+"ja": "豆を1袋買うと好きなドリップが1杯無料（最高額のものも可）。"
+},
+"p": 900,
+"pe": 1,
+"g": [
+"images/g/DfLx7nju5RZ_1.jpg",
+"images/g/DfLx7nju5RZ_2.jpg",
+"images/g/DfLx7nju5RZ_3.jpg",
+"images/g/DfLx7nju5RZ_4.jpg",
+"images/g/DfLx7nju5RZ_5.jpg",
+"images/g/DfLx7nju5RZ_6.jpg",
+"images/g/DfLx7nju5RZ_7.jpg",
+"images/g/DfLx7nju5RZ_8.jpg",
+"images/g/DfLx7nju5RZ_9.jpg"
+],
+"ar": null
 },
 {
 "id": 44,
@@ -1176,7 +3775,60 @@ window.ITEMS=[
 "ap": 0,
 "pc": "Illustrative photo · Wikimedia Commons: File:Ramen Cooking Tokyo - ramen sushi sake set.jpg (Junichiro Ozaki, CC BY-SA 4.0)",
 "pu": "https://commons.wikimedia.org/wiki/File:Ramen_Cooking_Tokyo_-_ramen_sushi_sake_set.jpg",
-"img": "images/alt-list15.jpg"
+"img": "images/alt-list15.jpg",
+"tr": {
+"zh": {
+"n": "15家一次列出（銀座／新宿／淺草…）",
+"d": "香港旅人喜歡的完整店家清單。"
+},
+"ja": {
+"n": "15店まとめ（銀座・新宿・浅草…）",
+"d": "香港の旅行者が気に入った店の一覧。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"美食清單",
+"グルメまとめ"
+],
+"h": {
+"en": "Varies by shop",
+"zh": "依店家而異",
+"ja": "店舗により異なる"
+},
+"cs": {
+"en": "One reader thinks Negishi gyutan is ordinary and small; another defends it as the easy no-booking option.",
+"zh": "有讀者覺得ねぎし牛舌普通、份量少；也有人說它是不用訂位的方便選擇。",
+"ja": "ねぎしの牛たんは普通で量が少ないという声と、予約不要で便利という擁護。"
+},
+"tip": {
+"en": "Mix of no-booking spots — good for solo travellers.",
+"zh": "多是不用訂位的店——適合一個人旅行。",
+"ja": "予約不要の店が多く、ひとり旅向き。"
+},
+"p": 2000,
+"pe": 1,
+"g": [
+"images/g/DfVrpymkw7Y_1.jpg",
+"images/g/DfVrpymkw7Y_2.jpg",
+"images/g/DfVrpymkw7Y_3.jpg",
+"images/g/DfVrpymkw7Y_4.jpg",
+"images/g/DfVrpymkw7Y_5.jpg",
+"images/g/DfVrpymkw7Y_6.jpg",
+"images/g/DfVrpymkw7Y_7.jpg",
+"images/g/DfVrpymkw7Y_8.jpg",
+"images/g/DfVrpymkw7Y_9.jpg",
+"images/g/DfVrpymkw7Y_10.jpg",
+"images/g/DfVrpymkw7Y_11.jpg",
+"images/g/DfVrpymkw7Y_12.jpg",
+"images/g/DfVrpymkw7Y_13.jpg",
+"images/g/DfVrpymkw7Y_14.jpg",
+"images/g/DfVrpymkw7Y_15.jpg"
+],
+"ar": null
 },
 {
 "id": 45,
@@ -1196,7 +3848,47 @@ window.ITEMS=[
 "ap": 0,
 "pc": "Illustrative photo · Wikimedia Commons: File:Tonkotsu Ramen - Goemon Ramen Bar 2023-06-06.jpg (Andy Li, CC0)",
 "pu": "https://commons.wikimedia.org/wiki/File:Tonkotsu_Ramen_-_Goemon_Ramen_Bar_2023-06-06.jpg",
-"img": "images/alt-list72.jpg"
+"img": "images/alt-list72.jpg",
+"tr": {
+"zh": {
+"n": "東京72間必吃美食（資訊圖）",
+"d": "兩張大型資訊圖，涵蓋燒肉、拉麵、壽司、咖啡、甜點等。打開貼文放大看。"
+},
+"ja": {
+"n": "東京必食72店（インフォグラフィック）",
+"d": "焼肉・ラーメン・寿司・カフェ・スイーツなどをまとめた大きな図2枚。投稿を開いて拡大を。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"美食清單",
+"グルメまとめ"
+],
+"h": {
+"en": "Varies by shop",
+"zh": "依店家而異",
+"ja": "店舗により異なる"
+},
+"cs": {
+"en": "Readers suspect the infographic is AI-made (odd items like ramen in the wrong city); most just save it.",
+"zh": "讀者懷疑圖是AI做的（有些內容怪怪的）；多數人只是收藏。",
+"ja": "AI生成では？との疑問（不自然な点あり）。多くは保存のみ。"
+},
+"tip": {
+"en": "Use as inspiration only — double-check each shop before going.",
+"zh": "當參考就好——去之前逐一確認店家。",
+"ja": "参考程度に。行く前に各店を確認。"
+},
+"p": 2500,
+"pe": 1,
+"g": [
+"images/g/DfQvndQCZwv_1.jpg",
+"images/g/DfQvndQCZwv_2.jpg"
+],
+"ar": null
 },
 {
 "id": 46,
@@ -1216,7 +3908,42 @@ window.ITEMS=[
 "ap": 0,
 "pc": "Illustrative photo · Wikimedia Commons: File:Maguro Chutoro (moderately fatty tuna) Nigiri.jpg (Zheng Zhou, CC BY-SA 4.0)",
 "pu": "https://commons.wikimedia.org/wiki/File:Maguro_Chutoro_(moderately_fatty_tuna)_Nigiri.jpg",
-"img": "images/alt-booking.jpg"
+"img": "images/alt-booking.jpg",
+"tr": {
+"zh": {
+"n": "難訂餐廳：開放預約時間表",
+"d": "每天發文列出東京難訂餐廳何時開放預約（以及平台：OMAKASE、TableCheck、ebica、電話），例如銀座みこ寿司、PRISMA、sincere、ひなべ猫。追蹤這個帳號來抓準訂位時間。"
+},
+"ja": {
+"n": "予約困難店：予約開始スケジュール",
+"d": "都内の予約困難店の予約開始時刻と媒体（OMAKASE・TableCheck・ebica・電話）を毎日投稿。例：銀座みこ寿司、PRISMA、sincere、ひなべ猫。フォローして予約のタイミングを。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"Omakase 主廚套餐",
+"おまかせ"
+],
+"h": {
+"en": "—",
+"zh": "—",
+"ja": "—"
+},
+"cs": {
+"en": "Only the account's own follow-up posts (by region and time).",
+"zh": "只有帳號自己按地區和時間的續文。",
+"ja": "アカウント自身の続き投稿（地域・時間別）のみ。"
+},
+"tip": {
+"en": "This is the \"latest booking time\" tool: it lists, day by day, the exact hour each hard-to-book shop opens bookings and on which platform (OMAKASE, TableCheck, ebica, phone). Make accounts on those platforms before your trip and be online at that minute.",
+"zh": "這就是「最新訂位時間」工具：每天列出各難訂餐廳開放預約的確切時間和平台（OMAKASE、TableCheck、ebica、電話）。出發前先註冊這些平台，準時上線搶位。",
+"ja": "予約困難店の予約開始時刻と媒体（OMAKASE・TableCheck・ebica・電話）を毎日まとめたアカウント。事前に各サービスに登録し、開始時刻に待機を。"
+},
+"g": [],
+"ar": null
 },
 {
 "id": 47,
@@ -1237,7 +3964,43 @@ window.ITEMS=[
 139.703949
 ],
 "ap": 0,
-"img": "images/DfTEPmfjsBO.jpg"
+"img": "images/DfTEPmfjsBO.jpg",
+"tr": {
+"zh": {
+"n": "LOCUST+（名牌折扣店，新宿丸井本館7F）",
+"d": "不用跑郊區Outlet的名牌折扣店。當天看到：Burberry ¥88,000 → ¥27,500，還有Supreme、Dickies、The North Face、Diesel、Fred Perry。"
+},
+"ja": {
+"n": "ローカストプラス 新宿丸井本館7F",
+"d": "郊外のアウトレットに行かずに済むブランドディスカウント店。当日はBurberry 88,000円→27,500円のほか、Supreme、Dickies、TNF、Diesel、Fred Perryなど。"
+}
+},
+"cz": [
+"購物",
+"ショッピング"
+],
+"sz": [
+"服飾＆Outlet",
+"ファッション・アウトレット"
+],
+"tip": {
+"en": "Stock changes daily — weekday mornings right at opening have the best pick. Bring your passport for tax-free.",
+"zh": "貨品每天更新——平日一開門去最好挑。帶護照可退稅。",
+"ja": "在庫は日々入れ替わるので平日の開店直後が狙い目。免税はパスポート持参。"
+},
+"g": [
+"images/g/DfTEPmfjsBO_1.jpg",
+"images/g/DfTEPmfjsBO_2.jpg",
+"images/g/DfTEPmfjsBO_3.jpg",
+"images/g/DfTEPmfjsBO_4.jpg",
+"images/g/DfTEPmfjsBO_5.jpg"
+],
+"ar": [
+"Shinjuku",
+"新宿",
+"新宿",
+4
+]
 },
 {
 "id": 48,
@@ -1258,7 +4021,42 @@ window.ITEMS=[
 139.7085
 ],
 "ap": 1,
-"img": "images/DfLx7nju5RZ.jpg"
+"img": "images/DfLx7nju5RZ.jpg",
+"tr": {
+"zh": {
+"n": "Little $uzie Apartment Tokyo（惠比壽）",
+"d": "全東京唯一實體店。不對稱剪裁、層次穿搭、大地色系。"
+},
+"ja": {
+"n": "Little $uzie Apartment Tokyo（恵比寿）",
+"d": "都内唯一の実店舗。アシンメトリーなカットとレイヤード、アースカラー。"
+}
+},
+"cz": [
+"購物",
+"ショッピング"
+],
+"sz": [
+"服飾＆Outlet",
+"ファッション・アウトレット"
+],
+"g": [
+"images/g/DfLx7nju5RZ_1.jpg",
+"images/g/DfLx7nju5RZ_2.jpg",
+"images/g/DfLx7nju5RZ_3.jpg",
+"images/g/DfLx7nju5RZ_4.jpg",
+"images/g/DfLx7nju5RZ_5.jpg",
+"images/g/DfLx7nju5RZ_6.jpg",
+"images/g/DfLx7nju5RZ_7.jpg",
+"images/g/DfLx7nju5RZ_8.jpg",
+"images/g/DfLx7nju5RZ_9.jpg"
+],
+"ar": [
+"Ebisu / Daikanyama",
+"惠比壽／代官山",
+"恵比寿・代官山",
+10
+]
 },
 {
 "id": 49,
@@ -1281,7 +4079,42 @@ window.ITEMS=[
 "ap": 1,
 "pc": "FULLMARKS Harajuku store · steep.jp",
 "pu": "https://steep.jp/en/spot/shop/7861",
-"img": "images/alt-fullmarks.jpg"
+"img": "images/alt-fullmarks.jpg",
+"tr": {
+"zh": {
+"n": "FULLMARKS（惠比壽，北歐戶外品牌）",
+"d": "戶外選物店，有Norrøna、Houdini等北歐頂級品牌。"
+},
+"ja": {
+"n": "FULLMARKS（恵比寿）",
+"d": "Norrøna、Houdiniなど北欧トップブランドが揃うアウトドアセレクトショップ。"
+}
+},
+"cz": [
+"購物",
+"ショッピング"
+],
+"sz": [
+"服飾＆Outlet",
+"ファッション・アウトレット"
+],
+"g": [
+"images/g/DfLx7nju5RZ_1.jpg",
+"images/g/DfLx7nju5RZ_2.jpg",
+"images/g/DfLx7nju5RZ_3.jpg",
+"images/g/DfLx7nju5RZ_4.jpg",
+"images/g/DfLx7nju5RZ_5.jpg",
+"images/g/DfLx7nju5RZ_6.jpg",
+"images/g/DfLx7nju5RZ_7.jpg",
+"images/g/DfLx7nju5RZ_8.jpg",
+"images/g/DfLx7nju5RZ_9.jpg"
+],
+"ar": [
+"Ebisu / Daikanyama",
+"惠比壽／代官山",
+"恵比寿・代官山",
+10
+]
 },
 {
 "id": 50,
@@ -1310,7 +4143,42 @@ window.ITEMS=[
 139.709
 ],
 "ap": 1,
-"img": "images/DeMYx8lA6Ub.jpg"
+"img": "images/DeMYx8lA6Ub.jpg",
+"tr": {
+"zh": {
+"n": "表參道／原宿逛街路線（7家）",
+"d": "一個下午可以走完的7家店：球鞋、日系服飾、甜點、伴手禮和角色商品。"
+},
+"ja": {
+"n": "表参道・原宿ショッピングルート（7店）",
+"d": "午後に歩いて回れる7店：スニーカー、日本ブランド、スイーツ、お土産、キャラクターグッズ。"
+}
+},
+"cz": [
+"購物",
+"ショッピング"
+],
+"sz": [
+"服飾＆Outlet",
+"ファッション・アウトレット"
+],
+"g": [
+"images/g/DeMYx8lA6Ub_1.jpg",
+"images/g/DeMYx8lA6Ub_2.jpg",
+"images/g/DeMYx8lA6Ub_3.jpg",
+"images/g/DeMYx8lA6Ub_4.jpg",
+"images/g/DeMYx8lA6Ub_5.jpg",
+"images/g/DeMYx8lA6Ub_6.jpg",
+"images/g/DeMYx8lA6Ub_7.jpg",
+"images/g/DeMYx8lA6Ub_8.jpg",
+"images/g/DeMYx8lA6Ub_9.jpg"
+],
+"ar": [
+"Omotesando / Harajuku",
+"表參道／原宿",
+"表参道・原宿",
+11
+]
 },
 {
 "id": 51,
@@ -1328,7 +4196,36 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DfQwqT8k_-I.jpg"
+"img": "images/DfQwqT8k_-I.jpg",
+"tr": {
+"zh": {
+"n": "WORKMAN（好穿的鞋）",
+"d": "日本工作服連鎖店。知名好穿鞋款約港幣150元。"
+},
+"ja": {
+"n": "ワークマン（履きやすい靴）",
+"d": "作業服チェーン。話題の歩きやすい靴は約3,000円前後。"
+}
+},
+"cz": [
+"購物",
+"ショッピング"
+],
+"sz": [
+"服飾＆Outlet",
+"ファッション・アウトレット"
+],
+"tip": {
+"en": "Popular sizes of the famous shoes sell out; larger branches (e.g. Workman Plus/Workman Girl) have more stock.",
+"zh": "熱門鞋款的常見尺寸容易缺貨；大型分店（Workman Plus/Workman Girl）庫存較多。",
+"ja": "人気シューズの定番サイズは品薄。大型店（ワークマンプラス等）の方が在庫豊富。"
+},
+"g": [
+"images/g/DfQwqT8k_-I_1.jpg",
+"images/g/DfQwqT8k_-I_2.jpg",
+"images/g/DfQwqT8k_-I_3.jpg"
+],
+"ar": null
 },
 {
 "id": 52,
@@ -1349,7 +4246,43 @@ window.ITEMS=[
 139.767181
 ],
 "ap": 0,
-"img": "images/DYjrjxjvIa_.jpg"
+"img": "images/DYjrjxjvIa_.jpg",
+"tr": {
+"zh": {
+"n": "銀座 伊東屋（文具）",
+"d": "銀座多樓層的文具天堂。"
+},
+"ja": {
+"n": "銀座 伊東屋",
+"d": "銀座の多層階の文房具天国。"
+}
+},
+"cz": [
+"購物",
+"ショッピング"
+],
+"sz": [
+"文具、生活雜貨＆角色商品",
+"文具・雑貨・キャラクター"
+],
+"tip": {
+"en": "Weekday mornings are calm; tax-free counter on site.",
+"zh": "平日早上較空；店內有退稅櫃檯。",
+"ja": "平日午前が空いている。免税カウンターあり。"
+},
+"g": [
+"images/g/DYjrjxjvIa__1.jpg",
+"images/g/DYjrjxjvIa__2.jpg",
+"images/g/DYjrjxjvIa__3.jpg",
+"images/g/DYjrjxjvIa__4.jpg",
+"images/g/DYjrjxjvIa__5.jpg"
+],
+"ar": [
+"Ginza",
+"銀座",
+"銀座",
+0
+]
 },
 {
 "id": 53,
@@ -1369,7 +4302,37 @@ window.ITEMS=[
 "ap": 0,
 "pc": "Wikimedia Commons: File:Loft in Ginza 201912.jpg (Wpcpey, CC BY 4.0)",
 "pu": "https://commons.wikimedia.org/wiki/File:Loft_in_Ginza_201912.jpg",
-"img": "images/alt-loft.jpg"
+"img": "images/alt-loft.jpg",
+"tr": {
+"zh": {
+"n": "LOFT",
+"d": "生活雜貨與文具連鎖店。「本來只想看看，結果雙手都拿滿。」澀谷和銀座有大型分店。"
+},
+"ja": {
+"n": "ロフト",
+"d": "生活雑貨と文具のチェーン。「見るだけのつもりが両手いっぱいに」。渋谷・銀座に大型店。"
+}
+},
+"cz": [
+"購物",
+"ショッピング"
+],
+"sz": [
+"文具、生活雜貨＆角色商品",
+"文具・雑貨・キャラクター"
+],
+"g": [
+"images/g/DcIxpBBgZuv_1.jpg",
+"images/g/DcIxpBBgZuv_2.jpg",
+"images/g/DcIxpBBgZuv_3.jpg",
+"images/g/DcIxpBBgZuv_4.jpg",
+"images/g/DcIxpBBgZuv_5.jpg",
+"images/g/DcIxpBBgZuv_6.jpg",
+"images/g/DcIxpBBgZuv_7.jpg",
+"images/g/DcIxpBBgZuv_8.jpg",
+"images/g/DcIxpBBgZuv_9.jpg"
+],
+"ar": null
 },
 {
 "id": 54,
@@ -1390,7 +4353,39 @@ window.ITEMS=[
 139.719
 ],
 "ap": 1,
-"img": "images/Dd01iYSoC_M.jpg"
+"img": "images/Dd01iYSoC_M.jpg",
+"tr": {
+"zh": {
+"n": "東映動畫官方商店 池袋（小魔女DoReMi）",
+"d": "東映動畫官方周邊店。有大區小魔女DoReMi商品，魔法少女迷必去。"
+},
+"ja": {
+"n": "東映アニメーション オフィシャルストア 池袋",
+"d": "東映アニメの公式ショップ。おジャ魔女どれみコーナーが充実、魔法少女ファン必見。"
+}
+},
+"cz": [
+"購物",
+"ショッピング"
+],
+"sz": [
+"文具、生活雜貨＆角色商品",
+"文具・雑貨・キャラクター"
+],
+"g": [
+"images/g/Dd01iYSoC_M_1.jpg",
+"images/g/Dd01iYSoC_M_2.jpg",
+"images/g/Dd01iYSoC_M_3.jpg",
+"images/g/Dd01iYSoC_M_4.jpg",
+"images/g/Dd01iYSoC_M_5.jpg",
+"images/g/Dd01iYSoC_M_6.jpg"
+],
+"ar": [
+"Ikebukuro",
+"池袋",
+"池袋",
+8
+]
 },
 {
 "id": 55,
@@ -1413,7 +4408,47 @@ window.ITEMS=[
 "ap": 1,
 "pc": "Wikimedia Commons: File:Cream and red coffee cup-shaped balconies, Niimi Tableware, Kappabashi Dougu Street, Tokyo, Japan.jpg (Basile Morin, CC BY-SA 4.0)",
 "pu": "https://commons.wikimedia.org/wiki/File:Cream_and_red_coffee_cup-shaped_balconies,_Niimi_Tableware,_Kappabashi_Dougu_Street,_Tokyo,_Japan.jpg",
-"img": "images/alt-kappabashi.jpg"
+"img": "images/alt-kappabashi.jpg",
+"tr": {
+"zh": {
+"n": "合羽橋道具街（餐具批發）",
+"d": "東京最大的廚具餐具批發街，在上野和淺草之間。作者私訊提供10家好店清單（留言「餐具」）。"
+},
+"ja": {
+"n": "かっぱ橋道具街",
+"d": "上野と浅草の間にある都内最大の調理器具・食器問屋街。投稿者がおすすめ10店をDMで紹介（「餐具」とコメント）。"
+}
+},
+"cz": [
+"購物",
+"ショッピング"
+],
+"sz": [
+"廚具＆餐具",
+"キッチン・食器"
+],
+"tip": {
+"en": "Most shops close by 17:00 and many close on Sundays — go on a weekday before 15:00.",
+"zh": "多數店17:00前關門、不少週日休——平日15:00前去。",
+"ja": "多くの店は17時閉店・日曜休みも多い。平日15時までに。"
+},
+"g": [
+"images/g/DaxOkXegpci_1.jpg",
+"images/g/DaxOkXegpci_2.jpg",
+"images/g/DaxOkXegpci_3.jpg",
+"images/g/DaxOkXegpci_4.jpg",
+"images/g/DaxOkXegpci_5.jpg",
+"images/g/DaxOkXegpci_6.jpg",
+"images/g/DaxOkXegpci_7.jpg",
+"images/g/DaxOkXegpci_8.jpg",
+"images/g/DaxOkXegpci_9.jpg"
+],
+"ar": [
+"Asakusa",
+"淺草",
+"浅草",
+5
+]
 },
 {
 "id": 56,
@@ -1435,7 +4470,42 @@ window.ITEMS=[
 139.774048
 ],
 "ap": 0,
-"img": "images/DfR1ZxOgTUe.jpg"
+"img": "images/DfR1ZxOgTUe.jpg",
+"tr": {
+"zh": {
+"n": "茅乃舍 高湯包",
+"d": "「高湯之神」。蔬菜高湯煮麵就很好吃；也推薦芝麻鍋、雞湯、冬季關東煮、韓式豆腐鍋和玉子燒的湯底。第二篇貼文在問要買哪些口味。"
+},
+"ja": {
+"n": "茅乃舎 だし",
+"d": "「だしの神様」。野菜だしで手軽に美味しい麺が作れる。ごま鍋・鶏・冬のおでん・スンドゥブ・だし巻きの素も。"
+}
+},
+"cz": [
+"伴手禮＆必買",
+"お土産・買うもの"
+],
+"sz": [
+"食品伴手禮",
+"食品のお土産"
+],
+"tip": {
+"en": "Sold at the Nihonbashi flagship and department-store basements; the vegetable dashi is the bestseller and sells out before New Year.",
+"zh": "日本橋旗艦店和百貨公司地下街有賣；蔬菜高湯最暢銷，年底前容易缺貨。",
+"ja": "日本橋本店やデパ地下で販売。野菜だしが一番人気で年末は品薄に。"
+},
+"g": [
+"images/g/DfR1ZxOgTUe_1.jpg",
+"images/g/DfR1ZxOgTUe_2.jpg",
+"images/g/DfR1ZxOgTUe_3.jpg",
+"images/g/DfR1ZxOgTUe_4.jpg"
+],
+"ar": [
+"Nihonbashi",
+"日本橋",
+"日本橋",
+2
+]
 },
 {
 "id": 57,
@@ -1456,7 +4526,47 @@ window.ITEMS=[
 139.768
 ],
 "ap": 1,
-"img": "images/Dc3H7HRiYYR.jpg"
+"img": "images/Dc3H7HRiYYR.jpg",
+"tr": {
+"zh": {
+"n": "東京車站新伴手禮",
+"d": "除了白色戀人以外，東京車站更新、更好吃的伴手禮。店家清單在影片裡；留言「伴手禮」作者會私訊。"
+},
+"ja": {
+"n": "東京駅の新しいお土産",
+"d": "白い恋人以外の新しい東京駅土産。店リストは動画内（「伴手禮」とコメントでDM）。"
+}
+},
+"cz": [
+"伴手禮＆必買",
+"お土産・買うもの"
+],
+"sz": [
+"食品伴手禮",
+"食品のお土産"
+],
+"tip": {
+"en": "Popular Tokyo Station sweets often sell out by late afternoon — buy in the morning or reserve where possible.",
+"zh": "東京車站熱門甜點常在傍晚前賣完——早上買或能預訂就先訂。",
+"ja": "東京駅の人気土産は夕方には売り切れがち。午前中に購入を。"
+},
+"g": [
+"images/g/Dc3H7HRiYYR_1.jpg",
+"images/g/Dc3H7HRiYYR_2.jpg",
+"images/g/Dc3H7HRiYYR_3.jpg",
+"images/g/Dc3H7HRiYYR_4.jpg",
+"images/g/Dc3H7HRiYYR_5.jpg",
+"images/g/Dc3H7HRiYYR_6.jpg",
+"images/g/Dc3H7HRiYYR_7.jpg",
+"images/g/Dc3H7HRiYYR_8.jpg",
+"images/g/Dc3H7HRiYYR_9.jpg"
+],
+"ar": [
+"Tokyo Stn / Marunouchi",
+"東京站／丸之內",
+"東京駅・丸の内",
+1
+]
 },
 {
 "id": 58,
@@ -1474,7 +4584,27 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DfJ_kAMEyLy.jpg"
+"img": "images/DfJ_kAMEyLy.jpg",
+"tr": {
+"zh": {
+"n": "花形沙布列餅乾",
+"d": "「為了外表買，結果很好吃。」花形餅乾、夾餡不會太甜。留言說關西機場和阪神百貨也有賣。品牌只在照片裡。"
+},
+"ja": {
+"n": "花形サブレ",
+"d": "「見た目で買ったら美味しかった」。甘さ控えめのクリームを挟んだ花形クッキー。関西空港や阪神百貨店にもあるとのこと。"
+}
+},
+"cz": [
+"伴手禮＆必買",
+"お土産・買うもの"
+],
+"sz": [
+"食品伴手禮",
+"食品のお土産"
+],
+"g": [],
+"ar": null
 },
 {
 "id": 59,
@@ -1492,7 +4622,35 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DfQjEfzkwvk.jpg"
+"img": "images/DfQjEfzkwvk.jpg",
+"tr": {
+"zh": {
+"n": "Blue Bottle 抹茶粉",
+"d": "Blue Bottle Coffee日本的稀有抹茶粉。可到Blue Bottle店內找找。"
+},
+"ja": {
+"n": "ブルーボトル 抹茶パウダー",
+"d": "入手困難なブルーボトルコーヒーの抹茶パウダー。店舗で確認を。"
+}
+},
+"cz": [
+"伴手禮＆必買",
+"お土産・買うもの"
+],
+"sz": [
+"食品伴手禮",
+"食品のお土産"
+],
+"tip": {
+"en": "Often out of stock — ask at larger Blue Bottle cafés (e.g. Kiyosumi, Aoyama) and buy when you see it.",
+"zh": "常缺貨——到較大的Blue Bottle店（清澄、青山）問，看到就買。",
+"ja": "品切れがち。清澄・青山などの大型店で確認し、見つけたら即購入。"
+},
+"g": [
+"images/g/DfQjEfzkwvk_1.jpg",
+"images/g/DfQjEfzkwvk_2.jpg"
+],
+"ar": null
 },
 {
 "id": 60,
@@ -1510,7 +4668,32 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DfCJIZszc3b.jpg"
+"img": "images/DfCJIZszc3b.jpg",
+"tr": {
+"zh": {
+"n": "7-11 特濃焙茶冰沙",
+"d": "小技巧：買一杯冰塊，加明治牛奶攪拌，會更綿密、比較不甜。"
+},
+"ja": {
+"n": "セブン 特濃ほうじ茶フラッペ",
+"d": "裏技：氷カップに明治の牛乳を入れて混ぜると、よりクリーミーで甘さ控えめに。"
+}
+},
+"cz": [
+"伴手禮＆必買",
+"お土産・買うもの"
+],
+"sz": [
+"超市＆便利商店",
+"スーパー・コンビニ"
+],
+"g": [
+"images/g/DfCJIZszc3b_1.jpg",
+"images/g/DfCJIZszc3b_2.jpg",
+"images/g/DfCJIZszc3b_3.jpg",
+"images/g/DfCJIZszc3b_4.jpg"
+],
+"ar": null
 },
 {
 "id": 61,
@@ -1528,7 +4711,32 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DfUsml_EugC.jpg"
+"img": "images/DfUsml_EugC.jpg",
+"tr": {
+"zh": {
+"n": "岩泉優格（「大谷優格」）",
+"d": "岩手產、超濃稠像麻糬一樣會拉絲的優格，和大谷翔平有關。可在超市或岩手特產館找。"
+},
+"ja": {
+"n": "岩泉ヨーグルト",
+"d": "岩手県産の、もちのように伸びる濃厚ヨーグルト。大谷翔平選手ゆかり。スーパーや岩手のアンテナショップで。"
+}
+},
+"cz": [
+"伴手禮＆必買",
+"お土産・買うもの"
+],
+"sz": [
+"超市＆便利商店",
+"スーパー・コンビニ"
+],
+"tip": {
+"en": "Try supermarkets with big dairy sections or the Iwate antenna shop \"いわて銀河プラザ\" (Ginza); it sells out quickly after TV coverage.",
+"zh": "可找大型超市乳品區或岩手特產館「いわて銀河プラザ」（銀座）；上過電視後很快賣完。",
+"ja": "大型スーパーか銀座の「いわて銀河プラザ」へ。テレビ放送後は売り切れやすい。"
+},
+"g": [],
+"ar": null
 },
 {
 "id": 62,
@@ -1546,7 +4754,35 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/Ddd89Z-BOIR.jpg"
+"img": "images/Ddd89Z-BOIR.jpg",
+"tr": {
+"zh": {
+"n": "日本各地調味料",
+"d": "介紹日本各地調味料的系列，第一集是廣島（真正用牡蠣做的蠔油）。"
+},
+"ja": {
+"n": "ご当地調味料",
+"d": "日本各地の調味料シリーズ。第1回は広島（本物の牡蠣を使ったオイスターソース）。"
+}
+},
+"cz": [
+"伴手禮＆必買",
+"お土産・買うもの"
+],
+"sz": [
+"超市＆便利商店",
+"スーパー・コンビニ"
+],
+"g": [
+"images/g/Ddd89Z-BOIR_1.jpg",
+"images/g/Ddd89Z-BOIR_2.jpg",
+"images/g/Ddd89Z-BOIR_3.jpg",
+"images/g/Ddd89Z-BOIR_4.jpg",
+"images/g/Ddd89Z-BOIR_5.jpg",
+"images/g/Ddd89Z-BOIR_6.jpg",
+"images/g/Ddd89Z-BOIR_7.jpg"
+],
+"ar": null
 },
 {
 "id": 63,
@@ -1564,7 +4800,32 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DfKDSrIlHpT.jpg"
+"img": "images/DfKDSrIlHpT.jpg",
+"tr": {
+"zh": {
+"n": "OS Drug（便宜藥妝，只收現金）",
+"d": "在新退稅制度下，很多人說OS Drug的含稅價甚至比其他店退稅後還便宜。只收現金。"
+},
+"ja": {
+"n": "OSドラッグ",
+"d": "新しい免税制度では、OSドラッグの税込価格が他店の免税後より安いという声も。現金のみ。"
+}
+},
+"cz": [
+"伴手禮＆必買",
+"お土産・買うもの"
+],
+"sz": [
+"藥妝＆美妝",
+"ドラッグストア・コスメ"
+],
+"tip": {
+"en": "Cash only, and no tax refund at the till — prices are already low. Queues form at lunchtime.",
+"zh": "只收現金，櫃檯不能退稅——價格本來就低。中午會排隊。",
+"ja": "現金のみ・免税なし（元々安い）。昼時はレジが混む。"
+},
+"g": [],
+"ar": null
 },
 {
 "id": 64,
@@ -1582,7 +4843,31 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DfMtgrwAYb0.jpg"
+"img": "images/DfMtgrwAYb0.jpg",
+"tr": {
+"zh": {
+"n": "Nature Conc 藥用足部乳液",
+"d": "滾珠式足部保養液。睡前塗腳跟，「隔天早上嫩得像嬰兒」。藥妝店有賣。"
+},
+"ja": {
+"n": "ネイチャーコンク 薬用フットケアローション",
+"d": "ロールオンタイプのかかとケア。寝る前に塗ると「翌朝赤ちゃんのよう」。ドラッグストアで。"
+}
+},
+"cz": [
+"伴手禮＆必買",
+"お土産・買うもの"
+],
+"sz": [
+"藥妝＆美妝",
+"ドラッグストア・コスメ"
+],
+"g": [
+"images/g/DfMtgrwAYb0_1.jpg",
+"images/g/DfMtgrwAYb0_2.jpg",
+"images/g/DfMtgrwAYb0_3.jpg"
+],
+"ar": null
 },
 {
 "id": 65,
@@ -1600,7 +4885,36 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/Dca6yyEpod3.jpg"
+"img": "images/Dca6yyEpod3.jpg",
+"tr": {
+"zh": {
+"n": "日本藥妝店的彩妝",
+"d": "韓國品牌（如Anua）在日本常常比較便宜，也有日本限定設計（如colorgram × 蠟筆小新）。日本彩妝出新品比較慢。"
+},
+"ja": {
+"n": "ドラッグストアのコスメ",
+"d": "韓国ブランド（Anuaなど）は日本の方が安いことも。日本限定デザイン（colorgram×クレしん）も。"
+}
+},
+"cz": [
+"伴手禮＆必買",
+"お土産・買うもの"
+],
+"sz": [
+"藥妝＆美妝",
+"ドラッグストア・コスメ"
+],
+"g": [
+"images/g/Dca6yyEpod3_1.jpg",
+"images/g/Dca6yyEpod3_2.jpg",
+"images/g/Dca6yyEpod3_3.jpg",
+"images/g/Dca6yyEpod3_4.jpg",
+"images/g/Dca6yyEpod3_5.jpg",
+"images/g/Dca6yyEpod3_6.jpg",
+"images/g/Dca6yyEpod3_7.jpg",
+"images/g/Dca6yyEpod3_8.jpg"
+],
+"ar": null
 },
 {
 "id": 66,
@@ -1621,7 +4935,44 @@ window.ITEMS=[
 139.77858
 ],
 "ap": 0,
-"img": "images/DdllNFbJeVF.jpg"
+"img": "images/DdllNFbJeVF.jpg",
+"tr": {
+"zh": {
+"n": "HOTEL PAUL HOUSE 御徒町",
+"d": "日式旅館，離地鐵2–3分鐘，近上野、御徒町、秋葉原。2–4人房。台灣人經營，可說中文。退房後寄放行李每天¥250。請提早訂。"
+},
+"ja": {
+"n": "HOTEL PAUL HOUSE 御徒町",
+"d": "駅から2〜3分の和風ホテル。上野・御徒町・秋葉原に近い。2〜4名部屋。台湾系で中国語可。チェックアウト後の荷物預かり1日250円。早めの予約を。"
+}
+},
+"cz": [
+"住宿",
+"宿泊"
+],
+"sz": [
+"上野／淺草",
+"上野・浅草"
+],
+"tip": {
+"en": "Small hotel — book early for peak dates (Christmas/New Year).",
+"zh": "小型旅館——旺季（聖誕、新年）要提早訂。",
+"ja": "小規模なので繁忙期（年末年始）は早めに予約。"
+},
+"g": [
+"images/g/DdllNFbJeVF_1.jpg",
+"images/g/DdllNFbJeVF_2.jpg",
+"images/g/DdllNFbJeVF_3.jpg",
+"images/g/DdllNFbJeVF_4.jpg",
+"images/g/DdllNFbJeVF_5.jpg",
+"images/g/DdllNFbJeVF_6.jpg"
+],
+"ar": [
+"Ueno",
+"上野",
+"上野",
+6
+]
 },
 {
 "id": 67,
@@ -1642,7 +4993,43 @@ window.ITEMS=[
 139.79422
 ],
 "ap": 0,
-"img": "images/C3P03YhL1A6.jpg"
+"img": "images/C3P03YhL1A6.jpg",
+"tr": {
+"zh": {
+"n": "御宿 野乃 淺草（Dormy Inn高級品牌）",
+"d": "Dormy Inn的高級品牌，有天然溫泉和知名早餐（鮭魚卵、干貝吃到飽）。含早餐每晚約台幣5,000；旺季很快客滿。"
+},
+"ja": {
+"n": "天然温泉 凌雲の湯 御宿 野乃 浅草",
+"d": "ドーミーインの上位ブランド。天然温泉と名物朝食（いくら・ほたて食べ放題）。繁忙期はすぐ満室。"
+}
+},
+"cz": [
+"住宿",
+"宿泊"
+],
+"sz": [
+"上野／淺草",
+"上野・浅草"
+],
+"tip": {
+"en": "Sells out fast in peak season; the free late-night ramen (21:30–23:00) and the breakfast are highlights.",
+"zh": "旺季很快客滿；免費宵夜拉麵（21:30–23:00）和早餐是亮點。",
+"ja": "繁忙期はすぐ満室。夜鳴きそば（21:30〜23:00）と朝食が名物。"
+},
+"g": [
+"images/g/C3P03YhL1A6_1.jpg",
+"images/g/C3P03YhL1A6_2.jpg",
+"images/g/C3P03YhL1A6_3.jpg",
+"images/g/C3P03YhL1A6_4.jpg",
+"images/g/C3P03YhL1A6_5.jpg"
+],
+"ar": [
+"Asakusa",
+"淺草",
+"浅草",
+5
+]
 },
 {
 "id": 68,
@@ -1663,7 +5050,47 @@ window.ITEMS=[
 139.7785
 ],
 "ap": 1,
-"img": "images/DaAYc4NRSdM.jpg"
+"img": "images/DaAYc4NRSdM.jpg",
+"tr": {
+"zh": {
+"n": "鶯谷包棟民宿（最多14人）",
+"d": "適合團體和家庭的包棟民宿（最多14人）。離車站近，附近有全家和唐吉訶德，可買到別處缺貨的東西。"
+},
+"ja": {
+"n": "鶯谷の一棟貸し（最大14名）",
+"d": "グループ・家族向けの一棟貸し（最大14名）。駅近、ファミマやドン・キホーテも近い。"
+}
+},
+"cz": [
+"住宿",
+"宿泊"
+],
+"sz": [
+"上野／淺草",
+"上野・浅草"
+],
+"tip": {
+"en": "Book well ahead for groups; check-in rules are by message.",
+"zh": "團體請提早預訂；入住方式透過訊息聯絡。",
+"ja": "グループは早めに予約。チェックイン方法はメッセージで案内。"
+},
+"g": [
+"images/g/DaAYc4NRSdM_1.jpg",
+"images/g/DaAYc4NRSdM_2.jpg",
+"images/g/DaAYc4NRSdM_3.jpg",
+"images/g/DaAYc4NRSdM_4.jpg",
+"images/g/DaAYc4NRSdM_5.jpg",
+"images/g/DaAYc4NRSdM_6.jpg",
+"images/g/DaAYc4NRSdM_7.jpg",
+"images/g/DaAYc4NRSdM_8.jpg",
+"images/g/DaAYc4NRSdM_9.jpg"
+],
+"ar": [
+"Ueno",
+"上野",
+"上野",
+6
+]
 },
 {
 "id": 69,
@@ -1686,7 +5113,39 @@ window.ITEMS=[
 "ap": 0,
 "pc": "www.jrk-hotels.co.jp",
 "pu": "https://www.jrk-hotels.co.jp/Shinjuku/",
-"img": "images/alt-blossom.jpg"
+"img": "images/alt-blossom.jpg",
+"tr": {
+"zh": {
+"n": "JR九州飯店 Blossom新宿",
+"d": "新宿車站對面，隔壁就是Lawson。搭JR和私鐵非常方便。電話 +81 3-5333-8687。"
+},
+"ja": {
+"n": "JR九州ホテル ブラッサム新宿",
+"d": "新宿駅の向かい、隣にローソン。JR・私鉄へのアクセス抜群。"
+}
+},
+"cz": [
+"住宿",
+"宿泊"
+],
+"sz": [
+"新宿／西區",
+"新宿・西エリア"
+],
+"g": [
+"images/g/DQ6qBXqAf8__1.jpg",
+"images/g/DQ6qBXqAf8__2.jpg",
+"images/g/DQ6qBXqAf8__3.jpg",
+"images/g/DQ6qBXqAf8__4.jpg",
+"images/g/DQ6qBXqAf8__5.jpg",
+"images/g/DQ6qBXqAf8__6.jpg"
+],
+"ar": [
+"Shinjuku",
+"新宿",
+"新宿",
+4
+]
 },
 {
 "id": 70,
@@ -1707,7 +5166,44 @@ window.ITEMS=[
 139.7038
 ],
 "ap": 1,
-"img": "images/Deg-FQABl9B.jpg"
+"img": "images/Deg-FQABl9B.jpg",
+"tr": {
+"zh": {
+"n": "UNITO 高田馬場（公寓式）",
+"d": "山手線上的平價公寓式飯店，1–5人（至少2晚）。有客廳、廚房和洗衣機；沙發可變雙人床。樓下便利商店，附近有唐吉訶德。新宿、蒲田、早稻田也有分館。"
+},
+"ja": {
+"n": "UNITO 高田馬場",
+"d": "山手線沿線の手頃なアパートメントホテル（1〜5名・2泊〜）。リビング・キッチン・洗濯機付き。下にコンビニ、近くにドンキ。"
+}
+},
+"cz": [
+"住宿",
+"宿泊"
+],
+"sz": [
+"新宿／西區",
+"新宿・西エリア"
+],
+"tip": {
+"en": "2-night minimum; cheaper on weekdays.",
+"zh": "至少住2晚；平日較便宜。",
+"ja": "2泊以上から。平日が割安。"
+},
+"g": [
+"images/g/Deg-FQABl9B_1.jpg",
+"images/g/Deg-FQABl9B_2.jpg",
+"images/g/Deg-FQABl9B_3.jpg",
+"images/g/Deg-FQABl9B_4.jpg",
+"images/g/Deg-FQABl9B_5.jpg",
+"images/g/Deg-FQABl9B_6.jpg"
+],
+"ar": [
+"Takadanobaba",
+"高田馬場",
+"高田馬場",
+19
+]
 },
 {
 "id": 71,
@@ -1728,7 +5224,39 @@ window.ITEMS=[
 139.703
 ],
 "ap": 1,
-"img": "images/DbdGTz6AjvW.jpg"
+"img": "images/DbdGTz6AjvW.jpg",
+"tr": {
+"zh": {
+"n": "購物族推薦的新宿飯店",
+"d": "推薦適合購物行程的新宿飯店影片。飯店名只在影片裡。"
+},
+"ja": {
+"n": "買い物向けの新宿のホテル",
+"d": "買い物旅行に便利な新宿のホテルを紹介する動画。名前は動画内。"
+}
+},
+"cz": [
+"住宿",
+"宿泊"
+],
+"sz": [
+"新宿／西區",
+"新宿・西エリア"
+],
+"g": [
+"images/g/DbdGTz6AjvW_1.jpg",
+"images/g/DbdGTz6AjvW_2.jpg",
+"images/g/DbdGTz6AjvW_3.jpg",
+"images/g/DbdGTz6AjvW_4.jpg",
+"images/g/DbdGTz6AjvW_5.jpg",
+"images/g/DbdGTz6AjvW_6.jpg"
+],
+"ar": [
+"Shinjuku",
+"新宿",
+"新宿",
+4
+]
 },
 {
 "id": 72,
@@ -1749,7 +5277,37 @@ window.ITEMS=[
 139.748
 ],
 "ap": 1,
-"img": "images/Cz3dIY3L74Q.jpg"
+"img": "images/Cz3dIY3L74Q.jpg",
+"tr": {
+"zh": {
+"n": "靜鐵飯店 Prezio 東京田町",
+"d": "田町站步行7分鐘，到東京車站4站，近東京鐵塔。附近有Lawson、全家、7-11和大型Life超市。每日打掃，有洗衣機、微波爐和製冰機。"
+},
+"ja": {
+"n": "静鉄ホテルプレジオ東京田町",
+"d": "田町駅徒歩7分、東京駅まで4駅、東京タワーの近く。コンビニ3社と大型スーパー「ライフ」が近い。毎日清掃、洗濯機・電子レンジ・製氷機あり。"
+}
+},
+"cz": [
+"住宿",
+"宿泊"
+],
+"sz": [
+"東京站／南區",
+"東京駅・南エリア"
+],
+"g": [
+"images/g/Cz3dIY3L74Q_1.jpg",
+"images/g/Cz3dIY3L74Q_2.jpg",
+"images/g/Cz3dIY3L74Q_3.jpg",
+"images/g/Cz3dIY3L74Q_4.jpg"
+],
+"ar": [
+"Tamachi",
+"田町",
+"田町",
+21
+]
 },
 {
 "id": 73,
@@ -1770,7 +5328,42 @@ window.ITEMS=[
 140.379913
 ],
 "ap": 0,
-"img": "images/DIY2vfdSkvj.jpg"
+"img": "images/DIY2vfdSkvj.jpg",
+"tr": {
+"zh": {
+"n": "成田東武機場飯店",
+"d": "適合航班時間尷尬時住。免費機場接駁，也有接駁車到成田山表參道老街（「小京都」）。"
+},
+"ja": {
+"n": "成田東武ホテルエアポート",
+"d": "早朝・深夜便に便利。空港への無料シャトルと、成田山表参道へのシャトルあり。"
+}
+},
+"cz": [
+"住宿",
+"宿泊"
+],
+"sz": [
+"成田機場",
+"成田空港"
+],
+"g": [
+"images/g/DIY2vfdSkvj_1.jpg",
+"images/g/DIY2vfdSkvj_2.jpg",
+"images/g/DIY2vfdSkvj_3.jpg",
+"images/g/DIY2vfdSkvj_4.jpg",
+"images/g/DIY2vfdSkvj_5.jpg",
+"images/g/DIY2vfdSkvj_6.jpg",
+"images/g/DIY2vfdSkvj_7.jpg",
+"images/g/DIY2vfdSkvj_8.jpg",
+"images/g/DIY2vfdSkvj_9.jpg"
+],
+"ar": [
+"Narita",
+"成田",
+"成田",
+25
+]
 },
 {
 "id": 74,
@@ -1788,7 +5381,36 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DfV_aXhEi2B.jpg"
+"img": "images/DfV_aXhEi2B.jpg",
+"tr": {
+"zh": {
+"n": "房價與即將調漲的住宿稅",
+"d": "同樣價錢，五反田的房間只有蒲田的約1/3大。觀光客正往山手線外圍分散。東京住宿稅明年4月起調漲，並按房價計算。"
+},
+"ja": {
+"n": "ホテル料金と宿泊税",
+"d": "同価格でも五反田の部屋は蒲田の約1/3の広さ。観光客は山手線の外側へ。東京の宿泊税は来年4月から値上げ・料金連動に。"
+}
+},
+"cz": [
+"住宿",
+"宿泊"
+],
+"sz": [
+"住宿小撇步",
+"宿泊のヒント"
+],
+"tip": {
+"en": "Book before April if you can — Tokyo's accommodation tax rises then and scales with room price.",
+"zh": "能的話4月前訂房——東京住宿稅屆時調漲並按房價計算。",
+"ja": "可能なら4月前に予約（宿泊税が値上げ・料金連動に）。"
+},
+"g": [
+"images/g/DfV_aXhEi2B_1.jpg",
+"images/g/DfV_aXhEi2B_2.jpg",
+"images/g/DfV_aXhEi2B_3.jpg"
+],
+"ar": null
 },
 {
 "id": 75,
@@ -1811,7 +5433,40 @@ window.ITEMS=[
 139.729
 ],
 "ap": 0,
-"img": "images/DeVwDx3ko6a.jpg"
+"img": "images/DeVwDx3ko6a.jpg",
+"tr": {
+"zh": {
+"n": "六本木Hills聖誕點燈＆德國聖誕市集",
+"d": "櫸木坂400公尺「SNOW & BLUE」燈海。在Emporio Armani附近可拍到燈海與東京鐵塔同框。德國聖誕市集邁入第20年：熱紅酒和香腸。"
+},
+"ja": {
+"n": "六本木ヒルズ クリスマス",
+"d": "けやき坂の400m「SNOW & BLUE」イルミネーション。エンポリオ アルマーニ付近から東京タワーと一緒に撮影。ドイツのクリスマスマーケットは20周年。"
+}
+},
+"cz": [
+"景點＆活動",
+"観光・イベント"
+],
+"sz": [
+"季節限定：聖誕＆秋季",
+"季節：クリスマス・秋"
+],
+"tip": {
+"en": "Weekday evenings after 21:00 are least crowded; the market is busiest 18:00–20:00 on weekends.",
+"zh": "平日晚上21:00後人最少；市集週末18:00–20:00最擠。",
+"ja": "平日21時以降が空いている。マーケットは週末18〜20時が最混雑。"
+},
+"g": [
+"images/g/De3MMTbKux6_1.jpg",
+"images/g/De3MMTbKux6_2.jpg"
+],
+"ar": [
+"Roppongi / Azabu",
+"六本木／麻布",
+"六本木・麻布",
+9
+]
 },
 {
 "id": 76,
@@ -1848,7 +5503,30 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/De3MMTbKux6.jpg"
+"img": "images/De3MMTbKux6.jpg",
+"tr": {
+"zh": {
+"n": "2026聖誕市集＆點燈",
+"d": "今年聖誕市集（🎄）和點燈（✨）的日期，整合自兩篇貼文。"
+},
+"ja": {
+"n": "クリスマスマーケット＆イルミネーション2026",
+"d": "今年のクリスマスマーケット（🎄）とイルミ（✨）の日程（2投稿をまとめ）。"
+}
+},
+"cz": [
+"景點＆活動",
+"観光・イベント"
+],
+"sz": [
+"季節限定：聖誕＆秋季",
+"季節：クリスマス・秋"
+],
+"g": [
+"images/g/De3MMTbKux6_1.jpg",
+"images/g/De3MMTbKux6_2.jpg"
+],
+"ar": null
 },
 {
 "id": 77,
@@ -1875,7 +5553,36 @@ window.ITEMS=[
 139.718
 ],
 "ap": 0,
-"img": "images/DfCYjQqhdLH.jpg"
+"img": "images/DfCYjQqhdLH.jpg",
+"tr": {
+"zh": {
+"n": "銀杏季：22個景點（最佳：11月下旬）",
+"d": "東京11月變成一片金黃。地圖標記＝明治神宮外苑銀杏大道。"
+},
+"ja": {
+"n": "イチョウの名所22選（見頃：11月下旬）",
+"d": "11月の東京は黄色に。ピン＝明治神宮外苑いちょう並木。"
+}
+},
+"cz": [
+"景點＆活動",
+"観光・イベント"
+],
+"sz": [
+"季節限定：聖誕＆秋季",
+"季節：クリスマス・秋"
+],
+"g": [
+"images/g/DfCYjQqhdLH_1.jpg",
+"images/g/DfCYjQqhdLH_2.jpg",
+"images/g/DfCYjQqhdLH_3.jpg"
+],
+"ar": [
+"Gaienmae",
+"外苑前",
+"外苑前",
+23
+]
 },
 {
 "id": 78,
@@ -1896,7 +5603,45 @@ window.ITEMS=[
 139.7773
 ],
 "ap": 0,
-"img": "images/DfWH9EhB87D.jpg"
+"img": "images/DfWH9EhB87D.jpg",
+"tr": {
+"zh": {
+"n": "Suica企鵝告別彩繪山手線",
+"d": "只有一列，11/3–12/2行駛，紀念Suica 25週年（即時位置：chocoden.chobi.net/yamanote/yamanote_now.html）。上野站13號月台（中央驗票口內）也有投影秀，11/3–12/6。"
+},
+"ja": {
+"n": "Suicaペンギン ラッピング山手線",
+"d": "Suica25周年記念で11/3〜12/2の1編成のみ運行（現在地：chocoden.chobi.net/yamanote/yamanote_now.html）。上野駅13番線でプロジェクションも（11/3〜12/6）。"
+}
+},
+"cz": [
+"景點＆活動",
+"観光・イベント"
+],
+"sz": [
+"季節限定：聖誕＆秋季",
+"季節：クリスマス・秋"
+],
+"tip": {
+"en": "Only one train — check its live position on the link before heading to a platform.",
+"zh": "只有一列——去月台前先用連結查即時位置。",
+"ja": "1編成のみ。ホームへ行く前にリンクで現在地を確認。"
+},
+"g": [
+"images/g/DfWH9EhB87D_1.jpg",
+"images/g/DfWH9EhB87D_2.jpg",
+"images/g/DfWH9EhB87D_3.jpg",
+"images/g/DfWH9EhB87D_4.jpg",
+"images/g/DfWH9EhB87D_5.jpg",
+"images/g/DfWH9EhB87D_6.jpg",
+"images/g/DfWH9EhB87D_7.jpg"
+],
+"ar": [
+"Ueno",
+"上野",
+"上野",
+6
+]
 },
 {
 "id": 79,
@@ -1919,7 +5664,37 @@ window.ITEMS=[
 "ap": 0,
 "pc": "zen.vie.style",
 "pu": "https://zen.vie.style/tokyo2026",
-"img": "images/alt-zennight.jpg"
+"img": "images/alt-zennight.jpg",
+"tr": {
+"zh": {
+"n": "ZEN NIGHT TOKYO（東京國立博物館）",
+"d": "在博物館裡的枯山水光影聲音夜間展演。2026.10.14–12.6。"
+},
+"ja": {
+"n": "ZEN NIGHT TOKYO 東京国立博物館",
+"d": "博物館の枯山水を舞台にした光と音のナイトショー。2026.10.14〜12.6。"
+}
+},
+"cz": [
+"景點＆活動",
+"観光・イベント"
+],
+"sz": [
+"展覽",
+"展覧会"
+],
+"tip": {
+"en": "Timed tickets — weekend slots sell out; buy online in advance.",
+"zh": "分時段售票——週末場次會賣完，請提前網路購票。",
+"ja": "日時指定制。週末枠は売り切れるので事前購入を。"
+},
+"g": [],
+"ar": [
+"Ueno",
+"上野",
+"上野",
+6
+]
 },
 {
 "id": 80,
@@ -1940,7 +5715,37 @@ window.ITEMS=[
 139.7292
 ],
 "ap": 0,
-"img": "images/De3O7LjmCvD.jpg"
+"img": "images/De3O7LjmCvD.jpg",
+"tr": {
+"zh": {
+"n": "排球少年展＆森萬里子展（六本木Hills）",
+"d": "排球少年展在森藝術中心畫廊，2026.10.30–2027.1.11。「森萬里子」展在森美術館，2026.10.31–2027.3.28。"
+},
+"ja": {
+"n": "ハイキュー!!展／森万里子展（六本木ヒルズ）",
+"d": "ハイキュー!!展は森アーツセンターギャラリーで2026.10.30〜2027.1.11。「森万里子」展は森美術館で2026.10.31〜2027.3.28。"
+}
+},
+"cz": [
+"景點＆活動",
+"観光・イベント"
+],
+"sz": [
+"展覽",
+"展覧会"
+],
+"tip": {
+"en": "Haikyu!! uses date-and-time tickets; weekends sell out early.",
+"zh": "排球少年展採日期時段票，週末很早售完。",
+"ja": "ハイキュー!!展は日時指定券、週末は早期完売。"
+},
+"g": [],
+"ar": [
+"Roppongi / Azabu",
+"六本木／麻布",
+"六本木・麻布",
+9
+]
 },
 {
 "id": 81,
@@ -1960,7 +5765,32 @@ window.ITEMS=[
 "ap": 0,
 "pc": "www.tokyoartbeat.com",
 "pu": "https://www.tokyoartbeat.com/articles/-/tim-burtons-labyrinth-news-202607",
-"img": "images/alt-timburton.jpg"
+"img": "images/alt-timburton.jpg",
+"tr": {
+"zh": {
+"n": "提姆·波頓的迷宮",
+"d": "在CREVIA BASE Tokyo，2026.11.25–2027.2.21。"
+},
+"ja": {
+"n": "ティム・バートンの世界",
+"d": "CREVIA BASE Tokyoにて2026.11.25〜2027.2.21。"
+}
+},
+"cz": [
+"景點＆活動",
+"観光・イベント"
+],
+"sz": [
+"展覽",
+"展覧会"
+],
+"tip": {
+"en": "Date-specified tickets; weekdays are easier.",
+"zh": "指定日期票；平日較好買。",
+"ja": "日付指定券、平日が取りやすい。"
+},
+"g": [],
+"ar": null
 },
 {
 "id": 82,
@@ -1983,7 +5813,37 @@ window.ITEMS=[
 "ap": 0,
 "pc": "www.tokyoartbeat.com",
 "pu": "https://www.tokyoartbeat.com/articles/-/yoichi-ochiai-null2n-news-202610",
-"img": "images/alt-null2.jpg"
+"img": "images/alt-null2.jpg",
+"tr": {
+"zh": {
+"n": "落合陽一 null²ⁿ 常設館（橫濱）",
+"d": "大阪世博館移到橫濱Landmark Plaza 5樓常設展出。營業9:30–19:40，可預約。"
+},
+"ja": {
+"n": "落合陽一 null²ⁿ（横浜）",
+"d": "大阪・関西万博のパビリオンが横浜ランドマークプラザ5Fで常設に。9:30〜19:40、予約可。"
+}
+},
+"cz": [
+"景點＆活動",
+"観光・イベント"
+],
+"sz": [
+"展覽",
+"展覧会"
+],
+"tip": {
+"en": "Reservations possible; last entry before 19:40.",
+"zh": "可預約；最後入場在19:40前。",
+"ja": "予約可・最終入場は19:40前。"
+},
+"g": [],
+"ar": [
+"Yokohama",
+"橫濱",
+"横浜",
+26
+]
 },
 {
 "id": 83,
@@ -2006,7 +5866,37 @@ window.ITEMS=[
 "ap": 1,
 "pc": "tokyotoilet.jp",
 "pu": "https://tokyotoilet.jp/",
-"img": "images/alt-tokyotoilet.jpg"
+"img": "images/alt-tokyotoilet.jpg",
+"tr": {
+"zh": {
+"n": "THE TOKYO TOILET（17間設計師公廁）",
+"d": "澀谷一帶由建築師設計的公共廁所。17間地圖：https://maps.app.goo.gl/ebnppPfcrR94GEsY7"
+},
+"ja": {
+"n": "THE TOKYO TOILET",
+"d": "渋谷周辺の建築家によるデザイン公衆トイレ。17か所の地図：https://maps.app.goo.gl/ebnppPfcrR94GEsY7"
+}
+},
+"cz": [
+"景點＆活動",
+"観光・イベント"
+],
+"sz": [
+"景點＆體驗",
+"スポット・体験"
+],
+"g": [
+"images/g/DeHRusSJ5Yq_1.jpg",
+"images/g/DeHRusSJ5Yq_2.jpg",
+"images/g/DeHRusSJ5Yq_3.jpg",
+"images/g/DeHRusSJ5Yq_4.jpg"
+],
+"ar": [
+"Shibuya",
+"澀谷",
+"渋谷",
+3
+]
 },
 {
 "id": 84,
@@ -2027,7 +5917,37 @@ window.ITEMS=[
 139.7302
 ],
 "ap": 1,
-"img": "images/De1mBQthmZB.jpg"
+"img": "images/De1mBQthmZB.jpg",
+"tr": {
+"zh": {
+"n": "四谷站的除草山羊",
+"d": "JR用山羊幫堤防除草，會待到12月左右。"
+},
+"ja": {
+"n": "四ツ谷駅のヤギ",
+"d": "JRが土手の除草にヤギを導入。12月頃まで。"
+}
+},
+"cz": [
+"景點＆活動",
+"観光・イベント"
+],
+"sz": [
+"景點＆體驗",
+"スポット・体験"
+],
+"g": [
+"images/g/De1mBQthmZB_1.jpg",
+"images/g/De1mBQthmZB_2.jpg",
+"images/g/De1mBQthmZB_3.jpg",
+"images/g/De1mBQthmZB_4.jpg"
+],
+"ar": [
+"Yotsuya",
+"四谷",
+"四谷",
+20
+]
 },
 {
 "id": 85,
@@ -2048,7 +5968,46 @@ window.ITEMS=[
 139.4858
 ],
 "ap": 0,
-"img": "images/DZSUFTDNCyo.jpg"
+"img": "images/DZSUFTDNCyo.jpg",
+"tr": {
+"zh": {
+"n": "川越（「小江戶」）一日遊",
+"d": "保存完整的江戶時代倉庫老街，距東京市中心約30分鐘。最快：池袋→川越搭川越特急（25–30分鐘），或西武新宿→本川越搭特急小江戶號（約45分鐘）。街頭小吃很多。"
+},
+"ja": {
+"n": "川越（小江戸）日帰り",
+"d": "江戸の蔵造りの町並みが残る、都心から約30分の街。池袋→川越は川越特急で25〜30分、西武新宿→本川越は特急小江戸で約45分。食べ歩きが豊富。"
+}
+},
+"cz": [
+"景點＆活動",
+"観光・イベント"
+],
+"sz": [
+"一日遊",
+"日帰り旅行"
+],
+"tip": {
+"en": "Weekends are packed by noon — arrive by 10:00. Popular eel shops need a booking even on weekdays.",
+"zh": "週末中午就擠滿——10:00前到。熱門鰻魚店平日也要訂位。",
+"ja": "週末は昼には大混雑、10時までに到着を。人気の鰻店は平日でも予約推奨。"
+},
+"g": [
+"images/g/DZSUFTDNCyo_1.jpg",
+"images/g/DZSUFTDNCyo_2.jpg",
+"images/g/DZSUFTDNCyo_3.jpg",
+"images/g/DZSUFTDNCyo_4.jpg",
+"images/g/DZSUFTDNCyo_5.jpg",
+"images/g/DZSUFTDNCyo_6.jpg",
+"images/g/DZSUFTDNCyo_7.jpg",
+"images/g/DZSUFTDNCyo_8.jpg"
+],
+"ar": [
+"Kawagoe",
+"川越",
+"川越",
+24
+]
 },
 {
 "id": 86,
@@ -2071,7 +6030,66 @@ window.ITEMS=[
 "ap": 0,
 "pc": "Illustrative photo · Kawagoe yaki-dango (another shop) · Wikimedia Commons: File:Matsuyama Shoten yaki dango Renkei-ji Kawagoe.jpg (KQuhen, CC BY-SA 4.0)",
 "pu": "https://commons.wikimedia.org/wiki/File:Matsuyama_Shoten_yaki_dango_Renkei-ji_Kawagoe.jpg",
-"img": "images/alt-araibuhei.jpg"
+"img": "images/alt-araibuhei.jpg",
+"tr": {
+"zh": {
+"n": "新井武平商店：黃金味噌糰子（川越）",
+"d": "超大Q彈糰子塗上百年秩父味噌、炭火現烤。¥500。在時之鐘附近。"
+},
+"ja": {
+"n": "新井武平商店 川越時の鐘店（黄金だんご）",
+"d": "大きなもちもち団子に老舗の秩父味噌を塗って炭火焼き。500円。時の鐘の近く。"
+}
+},
+"cz": [
+"美食",
+"グルメ"
+],
+"sz": [
+"甜點＆麵包",
+"スイーツ・パン"
+],
+"h": {
+"en": "10:00–18:00",
+"zh": "10:00–18:00",
+"ja": "10:00–18:00"
+},
+"cs": {
+"en": "A reader says Kawagoe is ~1 hour from Skytree and also famous for eel (book even on weekdays); another asks how far the sights are from the station (about 1 km / 13 min from Hon-Kawagoe).",
+"zh": "讀者說從晴空塔過去約1小時，川越鰻魚也很有名（平日也要訂位）；有人問景點離車站多遠（距本川越站約1公里／13分鐘）。",
+"ja": "スカイツリーから約1時間、川越は鰻も有名（平日でも予約推奨）とのコメント。駅からの距離の質問も（本川越から約1km・徒歩13分）。"
+},
+"tip": {
+"en": "No cards or e-money (QR codes OK). Queues move fast; weekday mornings are quietest. Also try the miso potato.",
+"zh": "不收信用卡和電子錢包（可用QR支付）。排隊很快；平日早上最空。也可試味噌薯。",
+"ja": "カード・電子マネー不可（QR可）。回転は早く、平日午前が空いている。みそポテトも人気。"
+},
+"tb": {
+"u": "https://tabelog.com/saitama/A1103/A110303/11040065/",
+"s": "3.14",
+"n": "138",
+"dn": "-",
+"ln": "-",
+"nm": "新井武平商店 ヤマブ川越時の鐘店"
+},
+"r": 3.14,
+"p": null,
+"g": [
+"images/g/DZSUFTDNCyo_1.jpg",
+"images/g/DZSUFTDNCyo_2.jpg",
+"images/g/DZSUFTDNCyo_3.jpg",
+"images/g/DZSUFTDNCyo_4.jpg",
+"images/g/DZSUFTDNCyo_5.jpg",
+"images/g/DZSUFTDNCyo_6.jpg",
+"images/g/DZSUFTDNCyo_7.jpg",
+"images/g/DZSUFTDNCyo_8.jpg"
+],
+"ar": [
+"Kawagoe",
+"川越",
+"川越",
+24
+]
 },
 {
 "id": 87,
@@ -2094,7 +6112,43 @@ window.ITEMS=[
 "ap": 0,
 "pc": "Wikimedia Commons: File:Omotesando to Naritasan Shinshoji Temple @ Narita (15079337220).jpg (Guilhem Vellut from Annecy, France, CC BY 2.0)",
 "pu": "https://commons.wikimedia.org/wiki/File:Omotesando_to_Naritasan_Shinshoji_Temple_@_Narita_(15079337220).jpg",
-"img": "images/alt-naritasan.jpg"
+"img": "images/alt-naritasan.jpg",
+"tr": {
+"zh": {
+"n": "成田山表參道＆新勝寺（最後一天行程）",
+"d": "距成田機場不到10分鐘。江戶風老街有炭烤鰻魚、千年古剎新勝寺，老茶屋吃抹茶甜點。適合下午或晚班機。"
+},
+"ja": {
+"n": "成田山表参道・新勝寺",
+"d": "成田空港から10分以内。鰻の蒲焼の老舗が並ぶ参道、1000年以上の歴史の新勝寺、茶屋の抹茶スイーツ。午後・夜便の前に。"
+}
+},
+"cz": [
+"景點＆活動",
+"観光・イベント"
+],
+"sz": [
+"一日遊",
+"日帰り旅行"
+],
+"tip": {
+"en": "Most shops close around 17:00 — go in the morning or early afternoon before an evening flight.",
+"zh": "多數店約17:00關門——晚班機前請在上午或下午早點去。",
+"ja": "多くの店は17時頃閉店。夜便なら午前〜昼過ぎに。"
+},
+"g": [
+"images/g/DbvK3SDvvtf_1.jpg",
+"images/g/DbvK3SDvvtf_2.jpg",
+"images/g/DbvK3SDvvtf_3.jpg",
+"images/g/DbvK3SDvvtf_4.jpg",
+"images/g/DbvK3SDvvtf_5.jpg"
+],
+"ar": [
+"Narita",
+"成田",
+"成田",
+25
+]
 },
 {
 "id": 88,
@@ -2116,7 +6170,53 @@ window.ITEMS=[
 139.7695
 ],
 "ap": 0,
-"img": "images/Dc5-1GYzKWV.jpg"
+"img": "images/Dc5-1GYzKWV.jpg",
+"tr": {
+"zh": {
+"n": "NRT-TYO 巴士（成田⇄東京車站，¥1,500）",
+"d": "約1小時，白天約每10分鐘一班，有Wi-Fi，工作人員會幫忙放行李。¥1,500（兒童¥750）；23:00–4:59發車¥3,000。購票：成田T1/T2/T3入境大廳LCB櫃檯；東京端在八重洲南口JR高速巴士售票處。另一篇說這是往返成田的「唯一推薦」：保證有座位、帶行李方便、便宜。"
+},
+"ja": {
+"n": "東京シャトル／NRT-TYO BUS",
+"d": "約1時間、日中は約10分間隔、Wi-Fiあり、荷物の積み込みも手伝ってくれる。1,500円（子供750円）、23:00〜4:59発は3,000円。成田各ターミナル到着ロビーのLCBカウンター、東京駅八重洲南口のJR高速バス券売所で購入。"
+}
+},
+"cz": [
+"交通",
+"交通"
+],
+"sz": [
+"機場交通",
+"空港アクセス"
+],
+"tip": {
+"en": "No booking needed in daytime (every ~10 min); late-night (23:00–4:59) fare is ¥3,000.",
+"zh": "白天不用預約（約每10分鐘一班）；深夜（23:00–4:59）票價¥3,000。",
+"ja": "日中は予約不要（約10分間隔）。深夜便（23:00〜4:59）は3,000円。"
+},
+"g": [
+"images/g/Dc5-1GYzKWV_1.jpg",
+"images/g/Dc5-1GYzKWV_2.jpg",
+"images/g/Dc5-1GYzKWV_3.jpg",
+"images/g/Dc5-1GYzKWV_4.jpg",
+"images/g/Dc5-1GYzKWV_5.jpg",
+"images/g/Dc5-1GYzKWV_6.jpg",
+"images/g/DbcWRq6Bc_s_1.jpg",
+"images/g/DbcWRq6Bc_s_2.jpg",
+"images/g/DbcWRq6Bc_s_3.jpg",
+"images/g/DbcWRq6Bc_s_4.jpg",
+"images/g/DbcWRq6Bc_s_5.jpg",
+"images/g/DbcWRq6Bc_s_6.jpg",
+"images/g/DbcWRq6Bc_s_7.jpg",
+"images/g/DbcWRq6Bc_s_8.jpg",
+"images/g/DbcWRq6Bc_s_9.jpg"
+],
+"ar": [
+"Tokyo Stn / Marunouchi",
+"東京站／丸之內",
+"東京駅・丸の内",
+1
+]
 },
 {
 "id": 89,
@@ -2137,7 +6237,46 @@ window.ITEMS=[
 139.774
 ],
 "ap": 0,
-"img": "images/DaVHfyaBMr8.jpg"
+"img": "images/DaVHfyaBMr8.jpg",
+"tr": {
+"zh": {
+"n": "Skyliner 臉部辨識閘門",
+"d": "出發前在Skyliner官網購票付款並登錄臉部，之後直接走閘門不用排隊。成田T1、T2/3、京成上野和日暮里都可用。"
+},
+"ja": {
+"n": "スカイライナー 顔認証改札",
+"d": "事前に公式サイトで購入・決済し顔を登録すれば、並ばずに改札を通過。成田T1・T2/3、京成上野、日暮里で利用可。"
+}
+},
+"cz": [
+"交通",
+"交通"
+],
+"sz": [
+"機場交通",
+"空港アクセス"
+],
+"tip": {
+"en": "Buy online and register your face before the trip; then no ticket queue at Narita/Ueno/Nippori.",
+"zh": "出發前網路購票並登錄臉部；之後在成田／上野／日暮里都不用排隊買票。",
+"ja": "事前にWEB購入と顔登録を。成田・上野・日暮里で券売機に並ばずに済む。"
+},
+"g": [
+"images/g/DaVHfyaBMr8_1.jpg",
+"images/g/DaVHfyaBMr8_2.jpg",
+"images/g/DaVHfyaBMr8_3.jpg",
+"images/g/DaVHfyaBMr8_4.jpg",
+"images/g/DaVHfyaBMr8_5.jpg",
+"images/g/DaVHfyaBMr8_6.jpg",
+"images/g/DaVHfyaBMr8_7.jpg",
+"images/g/DaVHfyaBMr8_8.jpg"
+],
+"ar": [
+"Ueno",
+"上野",
+"上野",
+6
+]
 },
 {
 "id": 90,
@@ -2160,7 +6299,42 @@ window.ITEMS=[
 "ap": 0,
 "pc": "Wikimedia Commons: File:Buildings with colorful neon street signs at blue hour, Shinjuku, Tokyo.jpg (Basile Morin, CC BY-SA 4.0)",
 "pu": "https://commons.wikimedia.org/wiki/File:Buildings_with_colorful_neon_street_signs_at_blue_hour,_Shinjuku,_Tokyo.jpg",
-"img": "images/alt-shinjukustn.jpg"
+"img": "images/alt-shinjukustn.jpg",
+"tr": {
+"zh": {
+"n": "新宿車站生存指南",
+"d": "迷路了？先找JR指標。東口＝3D貓（歌舞伎町、伊勢丹）。西口＝都廳（免費夜景、回憶橫丁、Yodobashi）。南口／新南口＝NEWoMan、Suica企鵝廣場、4樓Busta巴士轉運站。東南口＝BEAMS、新宿御苑。"
+},
+"ja": {
+"n": "新宿駅 攻略",
+"d": "迷ったらまずJRの案内を。東口＝3D猫（歌舞伎町・伊勢丹）。西口＝都庁（無料夜景・思い出横丁・ヨドバシ）。南口／新南口＝NEWoMan、Suicaのペンギン広場、4Fバスタ。東南口＝BEAMS、新宿御苑。"
+}
+},
+"cz": [
+"交通",
+"交通"
+],
+"sz": [
+"市區移動",
+"市内移動"
+],
+"g": [
+"images/g/Dd-ynzizrnY_1.jpg",
+"images/g/Dd-ynzizrnY_2.jpg",
+"images/g/Dd-ynzizrnY_3.jpg",
+"images/g/Dd-ynzizrnY_4.jpg",
+"images/g/Dd-ynzizrnY_5.jpg",
+"images/g/Dd-ynzizrnY_6.jpg",
+"images/g/Dd-ynzizrnY_7.jpg",
+"images/g/Dd-ynzizrnY_8.jpg",
+"images/g/Dd-ynzizrnY_9.jpg"
+],
+"ar": [
+"Shinjuku",
+"新宿",
+"新宿",
+4
+]
 },
 {
 "id": 91,
@@ -2180,7 +6354,49 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DfMcOcbzK7c.jpg"
+"img": "images/DfMcOcbzK7c.jpg",
+"tr": {
+"zh": {
+"n": "新退稅制度怎麼用（3步驟）",
+"d": "1）購物時出示護照，店家向退稅公司登錄。2）在機場先確認：在kiosk掃描護照，或（成田、羽田、關西、中部、福岡、新千歲、那霸）用機場Wi-Fi＋Visit Japan Web。3）線上選擇退款方式；信用卡退款需數小時到5個工作天，回國後90–180天內都可辦。8座機場有現金退稅機（收手續費）。簡單說就是「先付後退」：先付含稅價（示範影片：3COINS的JPrefund）。出發前先註冊四大退稅平台，帶護照或Visit Japan Web免稅QR碼。"
+},
+"ja": {
+"n": "新しい免税制度の流れ（3ステップ）",
+"d": "①購入時にパスポートを提示し、店が還付会社に登録。②空港で確認：キオスクでパスポートをスキャン、または（成田・羽田・関西・中部・福岡・新千歳・那覇）空港Wi-Fi＋Visit Japan Web。③オンラインで還付方法を選択。カード還付は数時間〜5営業日、帰国後90〜180日以内でも可。8空港に現金還付機（手数料あり）。要は「先払い・後還付」。"
+}
+},
+"cz": [
+"資訊＆小撇步",
+"情報・ヒント"
+],
+"sz": [
+"退稅（2026-11-01新制）",
+"免税（2026年11月1日からの新制度）"
+],
+"tip": {
+"en": "Register on the refund platforms before you fly and keep receipts; verify at the airport before security.",
+"zh": "出發前先註冊退稅平台、保留收據；在機場安檢前完成確認。",
+"ja": "出発前に還付サービスへ登録、レシートを保管。空港で保安検査前に確認を。"
+},
+"g": [
+"images/g/DfMcOcbzK7c_1.jpg",
+"images/g/DfMcOcbzK7c_2.jpg",
+"images/g/DfMcOcbzK7c_3.jpg",
+"images/g/DfMcOcbzK7c_4.jpg",
+"images/g/DfMcOcbzK7c_5.jpg",
+"images/g/DfMcOcbzK7c_6.jpg",
+"images/g/DfMcOcbzK7c_7.jpg",
+"images/g/DfMcOcbzK7c_8.jpg",
+"images/g/DeLITc9gYeg_1.jpg",
+"images/g/DeLITc9gYeg_2.jpg",
+"images/g/DeLITc9gYeg_3.jpg",
+"images/g/DeLITc9gYeg_4.jpg",
+"images/g/DeLITc9gYeg_5.jpg",
+"images/g/DeLITc9gYeg_6.jpg",
+"images/g/DeLITc9gYeg_7.jpg",
+"images/g/DeLITc9gYeg_8.jpg"
+],
+"ar": null
 },
 {
 "id": 92,
@@ -2202,7 +6418,46 @@ window.ITEMS=[
 140.3929
 ],
 "ap": 0,
-"img": "images/DfBT0Cqgsp5.jpg"
+"img": "images/DfBT0Cqgsp5.jpg",
+"tr": {
+"zh": {
+"n": "機場：Visit Japan Web確認＆退稅機（成田第二航廈實戰）",
+"d": "用Visit Japan Web線上確認就能跳過機場退稅機（成田、羽田、關西、中部、新千歲、福岡、那霸）。36座機場約200台機器；綠燈＝免檢查。「Self Tax Refund」現金機在羽田T2/T3、成田T1/T2和那霸（約1分鐘、7種語言）。成田T2實測：進出境大廳後左轉，盡頭有一排機器。事先綁好信用卡只要掃護照（綠＝完成，紅＝找海關）。要現金就去A–C報到櫃檯之間的「Self Tax Refund」。非常快。"
+},
+"ja": {
+"n": "空港：Visit Japan Webでの確認と還付キオスク（成田T2）",
+"d": "Visit Japan Webでオンライン確認すればキオスク不要（成田・羽田・関西・中部・新千歳・福岡・那覇）。36空港に約200台、緑ランプ＝検査なし。現金の「Self Tax Refund」は羽田T2/T3・成田T1/T2・那覇。成田T2は出発ロビーに入って左奥。カード登録済みならパスポートをかざすだけ。"
+}
+},
+"cz": [
+"資訊＆小撇步",
+"情報・ヒント"
+],
+"sz": [
+"退稅（2026-11-01新制）",
+"免税（2026年11月1日からの新制度）"
+],
+"tip": {
+"en": "Do the online check on airport Wi-Fi first to skip the kiosk queue.",
+"zh": "先連機場Wi-Fi做線上確認，可跳過kiosk排隊。",
+"ja": "空港Wi-Fiで先にオンライン確認するとキオスクの列を回避できる。"
+},
+"g": [
+"images/g/DfBT0Cqgsp5_1.jpg",
+"images/g/DfBT0Cqgsp5_2.jpg",
+"images/g/DfBT0Cqgsp5_3.jpg",
+"images/g/DfBT0Cqgsp5_4.jpg",
+"images/g/DfBT0Cqgsp5_5.jpg",
+"images/g/DfL7tumoznD_1.jpg",
+"images/g/DfL7tumoznD_2.jpg",
+"images/g/DfL7tumoznD_3.jpg"
+],
+"ar": [
+"Narita",
+"成田",
+"成田",
+25
+]
 },
 {
 "id": 93,
@@ -2220,7 +6475,27 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DfMmXuYGv6c.jpg"
+"img": "images/DfMmXuYGv6c.jpg",
+"tr": {
+"zh": {
+"n": "各店／業者退稅手續費",
+"d": "J-TaxRefund：竹屋、BicCamera、唐吉訶德、札幌藥妝、鶴羽 0%；松本清 0.33%；GU 1%；東武 1%；伊藤洋華堂 1.65%；松屋銀座 2.15%。PIE VAT：三井Outlet／LaLaport 1.5%、澀谷109 1.55%。Global Blue：Yodobashi 0%、高島屋 1.55%、EDION ¥210、大丸／松坂屋 2.3%。JPrefund：3COINS ¥320、阿卡將 1.1%。Animate 2.1%。"
+},
+"ja": {
+"n": "免税手数料一覧",
+"d": "J-TaxRefund：多慶屋・ビックカメラ・ドンキ・サツドラ・ツルハ0%、マツキヨ0.33%、GU1%、東武1%、イトーヨーカドー1.65%、松屋銀座2.15%。PIE VAT：三井アウトレット/ららぽーと1.5%、109 1.55%。Global Blue：ヨドバシ0%、高島屋1.55%、エディオン210円、大丸松坂屋2.3%。JPrefund：3COINS 320円、アカチャンホンポ1.1%。アニメイト2.1%。"
+}
+},
+"cz": [
+"資訊＆小撇步",
+"情報・ヒント"
+],
+"sz": [
+"退稅（2026-11-01新制）",
+"免税（2026年11月1日からの新制度）"
+],
+"g": [],
+"ar": null
 },
 {
 "id": 94,
@@ -2238,7 +6513,27 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": ""
+"img": "",
+"tr": {
+"zh": {
+"n": "新制第一天的災情",
+"d": "回報的問題：信用卡退款失敗（改領現金）、銀行退款失敗、密碼規則、店內登錄很慢、需自行到平台完成步驟、不知道店家用哪個App、台灣門號簡訊驗證、需要英文地址。"
+},
+"ja": {
+"n": "新制度初日のトラブル",
+"d": "カード還付の失敗（現金に切替）、銀行還付の失敗、パスワード規則、店頭登録の遅さ、自分で手続きを完了する必要、店がどのアプリか分からない、SMS認証、英語住所が必要など。"
+}
+},
+"cz": [
+"資訊＆小撇步",
+"情報・ヒント"
+],
+"sz": [
+"退稅（2026-11-01新制）",
+"免税（2026年11月1日からの新制度）"
+],
+"g": [],
+"ar": null
 },
 {
 "id": 95,
@@ -2257,7 +6552,43 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/Dcp7B8oTnc6.jpg"
+"img": "images/Dcp7B8oTnc6.jpg",
+"tr": {
+"zh": {
+"n": "4個好用App：ecbo cloak、ChargeSPOT、Ask Japan、乗換案内",
+"d": "ecbo cloak：在店家寄放行李。ChargeSPOT：租行動電源，還有哺乳室資訊等隱藏功能。Ask Japan：真實在地人的餐廳推薦。乗換案内：日本人用的轉乘App。ecbo cloak用法（第二篇）：在地圖上選店、日期和時段；45公分以下包包每天¥500、行李箱¥800；信用卡或Apple Pay付款；注意店家營業時間（7-11是24小時）。"
+},
+"ja": {
+"n": "便利アプリ4選：ecbo cloak・ChargeSPOT・Ask Japan・乗換案内",
+"d": "ecbo cloak：お店で荷物預かり。ChargeSPOT：モバイルバッテリー（授乳室情報なども）。Ask Japan：地元民のおすすめ。乗換案内：定番の乗換アプリ。ecbo cloakは45cm未満のバッグ1日500円、スーツケース800円。"
+}
+},
+"cz": [
+"資訊＆小撇步",
+"情報・ヒント"
+],
+"sz": [
+"實用App",
+"便利アプリ"
+],
+"g": [
+"images/g/Dcp7B8oTnc6_1.jpg",
+"images/g/Dcp7B8oTnc6_2.jpg",
+"images/g/Dcp7B8oTnc6_3.jpg",
+"images/g/Dcp7B8oTnc6_4.jpg",
+"images/g/Dcp7B8oTnc6_5.jpg",
+"images/g/Dcp7B8oTnc6_6.jpg",
+"images/g/Dcp7B8oTnc6_7.jpg",
+"images/g/Dcp7B8oTnc6_8.jpg",
+"images/g/Dcp7B8oTnc6_9.jpg",
+"images/g/DYoeZIlv2Q4_1.jpg",
+"images/g/DYoeZIlv2Q4_2.jpg",
+"images/g/DYoeZIlv2Q4_3.jpg",
+"images/g/DYoeZIlv2Q4_4.jpg",
+"images/g/DYoeZIlv2Q4_5.jpg",
+"images/g/DYoeZIlv2Q4_6.jpg"
+],
+"ar": null
 },
 {
 "id": 96,
@@ -2275,7 +6606,42 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DcnNAHPRdei.jpg"
+"img": "images/DcnNAHPRdei.jpg",
+"tr": {
+"zh": {
+"n": "4個省錢技巧（Apple錢包Suica、翻譯、優惠券）",
+"d": "把Suica/PASMO/ICOCA加進Apple錢包。用香港電子錢包付PayPay享即時匯率。用拍照翻譯看日文菜單（英文菜單可能比較貴）。百貨公司出示護照享5%折扣，加上唐吉訶德／藥妝優惠券。一日遊時把行李寄放。"
+},
+"ja": {
+"n": "節約術4選（Apple WalletのSuica・翻訳・クーポン）",
+"d": "Suica/PASMO/ICOCAをApple Walletに。PayPayは香港の電子マネー経由でリアルタイムレート。日本語メニューは写真翻訳で（英語メニューは高いことも）。百貨店のパスポート提示5%割引とドンキ・ドラッグストアのクーポン。日帰りは荷物を預けて。"
+}
+},
+"cz": [
+"資訊＆小撇步",
+"情報・ヒント"
+],
+"sz": [
+"旅行小撇步",
+"旅のヒント"
+],
+"tip": {
+"en": "Department-store 5% tourist coupons need your passport — collect them at the info desk first.",
+"zh": "百貨公司5%觀光客優惠需出示護照——先到服務台領。",
+"ja": "百貨店の5%優待はパスポートが必要。先に案内所で受け取る。"
+},
+"g": [
+"images/g/DcnNAHPRdei_1.jpg",
+"images/g/DcnNAHPRdei_2.jpg",
+"images/g/DcnNAHPRdei_3.jpg",
+"images/g/DcnNAHPRdei_4.jpg",
+"images/g/DcnNAHPRdei_5.jpg",
+"images/g/DcnNAHPRdei_6.jpg",
+"images/g/DcnNAHPRdei_7.jpg",
+"images/g/DcnNAHPRdei_8.jpg",
+"images/g/DcnNAHPRdei_9.jpg"
+],
+"ar": null
 },
 {
 "id": 97,
@@ -2294,7 +6660,45 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/Deyt-VCpnkm.jpg"
+"img": "images/Deyt-VCpnkm.jpg",
+"tr": {
+"zh": {
+"n": "搭飛機、旅行＆飯店小妙招影片",
+"d": "兩支短片：鮮為人知的搭機小知識（餐點、便宜機票；最後一招最省），以及一般旅行和飯店小技巧。"
+},
+"ja": {
+"n": "飛行機・旅行・ホテルの裏技動画",
+"d": "機内食や格安航空券など飛行機の豆知識（最後のが一番お得）と、旅行・ホテルの小技の動画2本。"
+}
+},
+"cz": [
+"資訊＆小撇步",
+"情報・ヒント"
+],
+"sz": [
+"旅行小撇步",
+"旅のヒント"
+],
+"g": [
+"images/g/Deyt-VCpnkm_1.jpg",
+"images/g/Deyt-VCpnkm_2.jpg",
+"images/g/Deyt-VCpnkm_3.jpg",
+"images/g/Deyt-VCpnkm_4.jpg",
+"images/g/Deyt-VCpnkm_5.jpg",
+"images/g/Deyt-VCpnkm_6.jpg",
+"images/g/Deyt-VCpnkm_7.jpg",
+"images/g/Deyt-VCpnkm_8.jpg",
+"images/g/De80C01TDPu_1.jpg",
+"images/g/De80C01TDPu_2.jpg",
+"images/g/De80C01TDPu_3.jpg",
+"images/g/De80C01TDPu_4.jpg",
+"images/g/De80C01TDPu_5.jpg",
+"images/g/De80C01TDPu_6.jpg",
+"images/g/De80C01TDPu_7.jpg",
+"images/g/De80C01TDPu_8.jpg",
+"images/g/De80C01TDPu_9.jpg"
+],
+"ar": null
 },
 {
 "id": 98,
@@ -2312,7 +6716,30 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DfRgnLmoGeZ.jpg"
+"img": "images/DfRgnLmoGeZ.jpg",
+"tr": {
+"zh": {
+"n": "注意：訂房資料外洩後的釣魚信",
+"d": "目前有詐騙信件寫出正確訂房資料。別點連結，請到官方App內確認。"
+},
+"ja": {
+"n": "ホテル予約情報流出後のフィッシングメールに注意",
+"d": "正しい予約内容を含む詐欺メールが出回っている。リンクは押さず公式アプリで確認を。"
+}
+},
+"cz": [
+"資訊＆小撇步",
+"情報・ヒント"
+],
+"sz": [
+"旅行小撇步",
+"旅のヒント"
+],
+"g": [
+"images/g/DfRgnLmoGeZ_1.jpg",
+"images/g/DfRgnLmoGeZ_2.jpg"
+],
+"ar": null
 },
 {
 "id": 99,
@@ -2330,7 +6757,46 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DdAwe1WE303.jpg"
+"img": "images/DdAwe1WE303.jpg",
+"tr": {
+"zh": {
+"n": "2026東京獨旅制霸完全攻略（30個技巧）",
+"d": "第一次獨旅：6天5夜最理想。最佳據點：上野（Skyliner＋山手線＋銀座／日比谷線）。夜生活：新宿；購物：澀谷；安靜高雅：日本橋／東京站。選飯店清單：離車站5–8分鐘、有洗衣機、附近有便利商店、房間打得開行李箱。"
+},
+"ja": {
+"n": "2026 東京ひとり旅完全攻略（30のコツ）",
+"d": "初めてのひとり旅は5泊6日が理想。拠点は上野（スカイライナー＋山手線＋銀座・日比谷線）。夜は新宿、買い物は渋谷、静かで上品なのは日本橋・東京駅。ホテルは駅5〜8分・洗濯機・コンビニ近く・スーツケースを広げられる広さ。"
+}
+},
+"cz": [
+"資訊＆小撇步",
+"情報・ヒント"
+],
+"sz": [
+"行程攻略",
+"旅程ガイド"
+],
+"g": [
+"images/g/DdAwe1WE303_1.jpg",
+"images/g/DdAwe1WE303_2.jpg",
+"images/g/DdAwe1WE303_3.jpg",
+"images/g/DdAwe1WE303_4.jpg",
+"images/g/DdAwe1WE303_5.jpg",
+"images/g/DdAwe1WE303_6.jpg",
+"images/g/DdAwe1WE303_7.jpg",
+"images/g/DdAwe1WE303_8.jpg",
+"images/g/DdAwe1WE303_9.jpg",
+"images/g/DdAwe1WE303_10.jpg",
+"images/g/DdAwe1WE303_11.jpg",
+"images/g/DdAwe1WE303_12.jpg",
+"images/g/DdAwe1WE303_13.jpg",
+"images/g/DdAwe1WE303_14.jpg",
+"images/g/DdAwe1WE303_15.jpg",
+"images/g/DdAwe1WE303_16.jpg",
+"images/g/DdAwe1WE303_17.jpg",
+"images/g/DdAwe1WE303_18.jpg"
+],
+"ar": null
 },
 {
 "id": 100,
@@ -2348,7 +6814,46 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": "images/DfJrWgtEld2.jpg"
+"img": "images/DfJrWgtEld2.jpg",
+"tr": {
+"zh": {
+"n": "東京新手攻略（5天行程）",
+"d": "淺草寺、Shibuya Sky、迪士尼、秋葉原、銀座；住哪裡、交通、Suica設定和5天市區行程。"
+},
+"ja": {
+"n": "初めての東京ガイド（5日間プラン）",
+"d": "浅草寺、渋谷スカイ、ディズニー、秋葉原、銀座。宿・交通・Suica設定・5日間プラン。"
+}
+},
+"cz": [
+"資訊＆小撇步",
+"情報・ヒント"
+],
+"sz": [
+"行程攻略",
+"旅程ガイド"
+],
+"g": [
+"images/g/DfJrWgtEld2_1.jpg",
+"images/g/DfJrWgtEld2_2.jpg",
+"images/g/DfJrWgtEld2_3.jpg",
+"images/g/DfJrWgtEld2_4.jpg",
+"images/g/DfJrWgtEld2_5.jpg",
+"images/g/DfJrWgtEld2_6.jpg",
+"images/g/DfJrWgtEld2_7.jpg",
+"images/g/DfJrWgtEld2_8.jpg",
+"images/g/DfJrWgtEld2_9.jpg",
+"images/g/DfJrWgtEld2_10.jpg",
+"images/g/DfJrWgtEld2_11.jpg",
+"images/g/DfJrWgtEld2_12.jpg",
+"images/g/DfJrWgtEld2_13.jpg",
+"images/g/DfJrWgtEld2_14.jpg",
+"images/g/DfJrWgtEld2_15.jpg",
+"images/g/DfJrWgtEld2_16.jpg",
+"images/g/DfJrWgtEld2_17.jpg",
+"images/g/DfJrWgtEld2_18.jpg"
+],
+"ar": null
 },
 {
 "id": 101,
@@ -2366,7 +6871,27 @@ window.ITEMS=[
 ],
 "ll": null,
 "ap": 0,
-"img": ""
+"img": "",
+"tr": {
+"zh": {
+"n": "東京區域怎麼按天安排",
+"d": "北：上野／淺草／晴空塔／谷中。西：新宿／澀谷／原宿／表參道／下北澤。中央：東京站／銀座／築地／日本橋。南：東京鐵塔／六本木／中目黑／自由之丘。灣區：台場／豐洲。一日遊：川越、日光；鎌倉、江之島、橫濱；吉卜力美術館、高尾山、輕井澤；迪士尼（2天）。"
+},
+"ja": {
+"n": "東京エリアの日別まとめ方",
+"d": "北：上野・浅草・スカイツリー・谷中。西：新宿・渋谷・原宿・表参道・下北沢。中央：東京駅・銀座・築地・日本橋。南：東京タワー・六本木・中目黒・自由が丘。湾岸：お台場・豊洲。日帰り：川越・日光、鎌倉・江ノ島・横浜、ジブリ美術館・高尾山・軽井沢、ディズニー（2日）。"
+}
+},
+"cz": [
+"資訊＆小撇步",
+"情報・ヒント"
+],
+"sz": [
+"行程攻略",
+"旅程ガイド"
+],
+"g": [],
+"ar": null
 }
 ];
 </script>
@@ -2380,20 +6905,83 @@ const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim
 const items=window.ITEMS;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- language ---------- */
+const UI={
+ en:{search:'Search names, areas, food…',saved:'♥ Saved',savedTip:'Show only places you saved',all:'All',count:(a,b,c)=>`${a} of ${b} picks · ${c} on map`,
+  none:'Nothing matches. Clear the search or pick another category.',nopin:'no pin',approx:'approx. pin',places:n=>n+' places',posts:n=>n+' posts',photos:n=>n+' photos',
+  addr:'Address',loc:'Location',locApprox:'Approximate (area only). Use Google Maps for the exact spot.',locPin:'Pinned from address',locNone:'Not pinned. Search the name in Google Maps.',
+  from:'From',gmaps:'Google Maps ↗',show:'Show on map',orig:'Original post ↗',post:k=>'Post '+k+' ↗',refs:n=>'References ('+n+' posts)',ref:'Reference',
+  save:'♡ Save',savedB:'♥ Saved',list:'List',map:'Map',details:'Details',approxLoc:'Approximate location',photo:'Photo',mapLib:'The map library could not load. Check your connection.',
+  tiles:'Street map tiles are not available here, so the Yamanote Line is drawn for orientation. Tap "Google Maps" on any place to navigate.',
+  sort:{def:'Sort: by category',area:'Sort: by area',near:'Sort: nearest to me',plo:'Sort: price low → high',phi:'Sort: price high → low',rate:'Sort: Tabelog rating'},
+  tabelog:'Tabelog',reviews:'reviews',dinner:'Dinner',lunch:'Lunch',hours:'Opening hours',cs:'What commenters say',tip:'Booking, sell-out & tips',gal:'Photos & video frames from the posts',
+  est:'est.',checked:'Tabelog data and hours checked 16 Nov 2026. Confirm before you go.',other:'Other / no pin',geoErr:'Location not available, so the list is sorted by area instead.',geoWait:'Finding your location…',open:'Open on Tabelog ↗',km:'km'},
+ zh:{search:'搜尋店名、地區、美食…',saved:'♥ 已收藏',savedTip:'只顯示收藏的地點',all:'全部',count:(a,b,c)=>`共 ${b} 個中的 ${a} 個 · 地圖上 ${c} 個`,
+  none:'沒有符合的項目。請清除搜尋或換個分類。',nopin:'無定位',approx:'大約位置',places:n=>n+' 家',posts:n=>n+' 篇貼文',photos:n=>n+' 張',
+  addr:'地址',loc:'位置',locApprox:'大約位置（只到區域）。請用 Google 地圖找確切地點。',locPin:'依地址定位',locNone:'未定位。請在 Google 地圖搜尋店名。',
+  from:'來源',gmaps:'Google 地圖 ↗',show:'在地圖上顯示',orig:'原始貼文 ↗',post:k=>'貼文 '+k+' ↗',refs:n=>'參考（'+n+' 篇貼文）',ref:'參考',
+  save:'♡ 收藏',savedB:'♥ 已收藏',list:'列表',map:'地圖',details:'詳情',approxLoc:'大約位置',photo:'照片',mapLib:'地圖無法載入，請檢查網路。',
+  tiles:'無法載入街道地圖，先以山手線示意位置。點各地點的「Google 地圖」導航。',
+  sort:{def:'排序：依分類',area:'排序：依地區',near:'排序：離我最近',plo:'排序：價格低 → 高',phi:'排序：價格高 → 低',rate:'排序：Tabelog 評分'},
+  tabelog:'Tabelog',reviews:'則評論',dinner:'晚餐',lunch:'午餐',hours:'營業時間',cs:'留言重點',tip:'訂位、售完時間與小撇步',gal:'貼文照片與影片截圖',
+  est:'約',checked:'Tabelog 資料與營業時間於 2026/11/16 確認，出發前請再確認。',other:'其他／未定位',geoErr:'無法取得位置，改依地區排序。',geoWait:'正在取得你的位置…',open:'在 Tabelog 開啟 ↗',km:'公里'},
+ ja:{search:'店名・エリア・料理で検索…',saved:'♥ 保存済み',savedTip:'保存した場所だけ表示',all:'すべて',count:(a,b,c)=>`${b}件中 ${a}件 · 地図 ${c}件`,
+  none:'該当なし。検索を消すか別のカテゴリーを選んでください。',nopin:'位置なし',approx:'おおよその位置',places:n=>n+'店',posts:n=>n+'投稿',photos:n=>n+'枚',
+  addr:'住所',loc:'位置',locApprox:'おおよその位置（エリアのみ）。正確な場所はGoogleマップで。',locPin:'住所から表示',locNone:'位置未登録。Googleマップで店名を検索。',
+  from:'投稿者',gmaps:'Googleマップ ↗',show:'地図で表示',orig:'元の投稿 ↗',post:k=>'投稿 '+k+' ↗',refs:n=>'参考（'+n+'投稿）',ref:'参考',
+  save:'♡ 保存',savedB:'♥ 保存済み',list:'リスト',map:'地図',details:'詳細',approxLoc:'おおよその位置',photo:'写真',mapLib:'地図を読み込めません。接続を確認してください。',
+  tiles:'地図タイルを表示できないため、山手線のみ表示しています。各スポットの「Googleマップ」で案内できます。',
+  sort:{def:'並び順：カテゴリー',area:'並び順：エリア',near:'並び順：現在地から近い',plo:'並び順：価格が安い順',phi:'並び順：価格が高い順',rate:'並び順：食べログ評価'},
+  tabelog:'食べログ',reviews:'件の口コミ',dinner:'夜',lunch:'昼',hours:'営業時間',cs:'コメントのまとめ',tip:'予約・売り切れ・攻略',gal:'投稿の写真と動画のカット',
+  est:'約',checked:'食べログ情報と営業時間は2026/11/16時点。訪問前に確認を。',other:'その他／位置なし',geoErr:'現在地を取得できないため、エリア順にしました。',geoWait:'現在地を取得中…',open:'食べログで見る ↗',km:'km'}
+};
+let lang='en';
+try{const s=localStorage.getItem('tp-lang'); if(s&&UI[s]) lang=s; else {const n=(navigator.language||'').toLowerCase(); lang=n.startsWith('zh')?'zh':n.startsWith('ja')?'ja':'en';}}catch(e){}
+const L=()=>UI[lang];
+const LI=()=>lang==='zh'?0:1;
+const N=it=>lang!=='en'&&it.tr?it.tr[lang].n:it.n;
+const D=it=>lang!=='en'&&it.tr?it.tr[lang].d:it.d;
+const CN=c=>{if(lang==='en')return c; const it=items.find(i=>i.c===c); return it&&it.cz?it.cz[LI()]:c};
+const SN=it=>lang!=='en'&&it.sz?it.sz[LI()]:it.s;
+const SNs=s=>{const it=items.find(i=>i.s===s); return it?SN(it):s};
+const AR=it=>it.ar?it.ar[lang==='en'?0:lang==='zh'?1:2]:'';
+const TX=o=>o?(o[lang]||o.en):'';
+const yen=it=>it.p?(it.pe?L().est+' ':'')+'¥'+it.p.toLocaleString('en-US')+'+':'';
+
 let saved=new Set(); try{const nm=new Set(JSON.parse(localStorage.getItem('tp-saved-n')||'[]')); items.forEach(it=>{if(nm.has(it.n)) saved.add(it.id)})}catch(e){}
 const persist=()=>{try{localStorage.setItem('tp-saved-n',JSON.stringify([...saved].map(id=>items[id].n)))}catch(e){}};
-const st={cat:'All',sub:'All',q:'',saved:false};
+const st={cat:'All',sub:'All',q:'',saved:false,sort:'def'};
+try{const s=localStorage.getItem('tp-sort'); if(s&&s!=='near'&&UI.en.sort[s]) st.sort=s;}catch(e){}
+let me=null;
 
 const gmaps=it=>{
   if(it.ll && !it.ap) return 'https://www.google.com/maps/search/?api=1&query='+it.ll[0]+','+it.ll[1];
   return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((it.j||it.n)+(it.a?' '+it.a:' 東京'));
 };
 const gq=name=>'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name);
+const dist=it=>{if(!me||!it.ll) return Infinity; const dy=(it.ll[0]-me[0])*111, dx=(it.ll[1]-me[1])*111*Math.cos(me[0]*Math.PI/180); return Math.hypot(dx,dy)};
 
+function hay(it){const t=it.tr||{zh:{},ja:{}}; return [it.n,it.j,it.d,it.s,it.a,it.by,...(it.li||[]),t.zh.n,t.zh.d,t.ja.n,t.ja.d,...(it.ar||[]),...(it.sz||[]),it.tb&&it.tb.nm].join(' ').toLowerCase()}
 function filtered(){
   const q=st.q.toLowerCase();
-  return items.filter(it=>(st.cat==='All'||it.c===st.cat)&&(st.sub==='All'||it.s===st.sub)&&(!st.saved||saved.has(it.id))&&
-    (!q||[it.n,it.j,it.d,it.s,it.a,it.by,...(it.li||[])].join(' ').toLowerCase().includes(q)));
+  const l=items.filter(it=>(st.cat==='All'||it.c===st.cat)&&(st.sub==='All'||it.s===st.sub)&&(!st.saved||saved.has(it.id))&&(!q||hay(it).includes(q)));
+  const last=v=>v==null||v===Infinity;
+  const by=(f,dir)=>l.sort((a,b)=>{const x=f(a),y=f(b); if(last(x)&&last(y)) return a.id-b.id; if(last(x)) return 1; if(last(y)) return -1; return dir*(x-y)||a.id-b.id});
+  if(st.sort==='plo') by(i=>i.p,1);
+  else if(st.sort==='phi') by(i=>i.p,-1);
+  else if(st.sort==='rate') by(i=>i.r,-1);
+  else if(st.sort==='near') by(dist,1);
+  return l;
+}
+
+function renderStatic(){
+  document.documentElement.lang=lang==='zh'?'zh-Hant':lang;
+  $('#q').placeholder=L().search; $('#savedBtn').textContent=L().saved; $('#savedBtn').title=L().savedTip;
+  $('#vList').textContent=L().list; $('#vMap').textContent=L().map;
+  document.querySelectorAll('.lang button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lang===lang));
+  const s=$('#sort'); s.innerHTML=Object.entries(L().sort).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join(''); s.value=st.sort;
+  $('#legend').innerHTML=CATS.map(([c,cc])=>`<span style="--cc:var(${cc})"><i></i>${esc(CN(c))}</span>`).join('');
 }
 
 function renderChips(){
@@ -2402,14 +6990,14 @@ function renderChips(){
   const mk=(label,n,cc,pressed,fn)=>{const b=document.createElement('button');b.className='chip';b.setAttribute('aria-pressed',pressed);
     if(cc) b.style.setProperty('--cc','var('+cc+')');
     b.innerHTML=(cc?'<span class="dot"></span>':'')+esc(label)+' <span class="n">'+n+'</span>';b.onclick=fn;return b};
-  cats.append(mk('All',base.length,null,st.cat==='All',()=>{st.cat='All';st.sub='All';update()}));
-  CATS.forEach(([c,cc])=>{const n=base.filter(i=>i.c===c).length; if(n) cats.append(mk(c,n,cc,st.cat===c,()=>{st.cat=c;st.sub='All';update()}))});
+  cats.append(mk(L().all,base.length,null,st.cat==='All',()=>{st.cat='All';st.sub='All';update()}));
+  CATS.forEach(([c,cc])=>{const n=base.filter(i=>i.c===c).length; if(n) cats.append(mk(CN(c),n,cc,st.cat===c,()=>{st.cat=c;st.sub='All';update()}))});
   const subs=$('#subs'); subs.innerHTML='';
   if(st.cat!=='All'){
     const list=[...new Set(base.filter(i=>i.c===st.cat).map(i=>i.s))];
     if(list.length>1){
-      subs.append(mk('All '+st.cat,base.filter(i=>i.c===st.cat).length,CV[st.cat],st.sub==='All',()=>{st.sub='All';update()}));
-      list.forEach(s=>subs.append(mk(s,base.filter(i=>i.c===st.cat&&i.s===s).length,CV[st.cat],st.sub===s,()=>{st.sub=s;update()})));
+      subs.append(mk(L().all+' · '+CN(st.cat),base.filter(i=>i.c===st.cat).length,CV[st.cat],st.sub==='All',()=>{st.sub='All';update()}));
+      list.forEach(s=>subs.append(mk(SNs(s),base.filter(i=>i.c===st.cat&&i.s===s).length,CV[st.cat],st.sub===s,()=>{st.sub=s;update()})));
     }
   }
 }
@@ -2417,11 +7005,13 @@ function renderChips(){
 function card(it){
   const b=document.createElement('div');b.className='card';b.tabIndex=0;b.setAttribute('role','button');b.dataset.id=it.id;
   b.style.setProperty('--cc','var('+CV[it.c]+')');
-  const badges=[]; if(!it.ll) badges.push('no pin'); else if(it.ap) badges.push('approx. pin'); if(it.li&&it.li.length) badges.push(it.li.length+' places'); if(it.refs&&it.refs.length>1) badges.push(it.refs.length+' posts');
-  b.innerHTML=`<div class="thumb ${it.img?'':'ph'}" ${it.img?`style="background-image:url('${it.img}')"`:''}>${it.img?'':esc(it.n.slice(0,1))}
-    <div class="badges">${badges.map(x=>`<span class="badge">${x}</span>`).join('')}</div>
+  const badges=[]; if(!it.ll) badges.push(L().nopin); else if(it.ap) badges.push(L().approx); if(it.li&&it.li.length) badges.push(L().places(it.li.length)); if(it.refs&&it.refs.length>1) badges.push(L().posts(it.refs.length)); if(it.g&&it.g.length) badges.push(L().photos(it.g.length));
+  const meta=[]; if(it.r) meta.push(`<span class="star">★ ${it.r.toFixed(2)}</span>`); if(it.p) meta.push(`<span>${esc(yen(it))}</span>`);
+  if(st.sort==='near'&&me&&it.ll) meta.push(`<span>${dist(it).toFixed(1)} ${esc(L().km)}</span>`); if(it.ar) meta.push(`<span class="ar">${esc(AR(it))}</span>`);
+  b.innerHTML=`<div class="thumb ${it.img?'':'ph'}" ${it.img?`style="background-image:url('${it.img}')"`:''}>${it.img?'':esc(N(it).slice(0,1))}
+    <div class="badges">${badges.map(x=>`<span class="badge">${esc(x)}</span>`).join('')}</div>
     <button class="heart" aria-label="Save" aria-pressed="${saved.has(it.id)}">${saved.has(it.id)?'♥':'♡'}</button></div>
-    <div class="cbody"><span class="sub">${esc(it.s)}</span><h4 class="cname">${esc(it.n)}</h4>${it.j?`<span class="jp">${esc(it.j)}</span>`:''}<span class="cdesc">${esc(it.d)}</span></div>`;
+    <div class="cbody"><span class="sub">${esc(SN(it))}</span><h4 class="cname">${esc(N(it))}</h4>${it.j?`<span class="jp">${esc(it.j)}</span>`:''}${meta.length?`<span class="cmeta">${meta.join('<span>·</span>')}</span>`:''}<span class="cdesc">${esc(D(it))}</span></div>`;
   b.querySelector('.heart').onclick=e=>{e.stopPropagation();toggleSave(it.id)};
   b.onclick=()=>openSheet(it.id);
   b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openSheet(it.id)}};
@@ -2431,15 +7021,28 @@ function card(it){
 
 function renderList(list){
   const pane=$('#listPane'); pane.innerHTML='';
-  $('#count').textContent=list.length+' of '+items.length+' picks · '+list.filter(i=>i.ll).length+' on map';
-  if(!list.length){pane.innerHTML='<div class="empty">Nothing matches. Clear the search or pick another category.</div>';return}
+  $('#count').textContent=L().count(list.length,items.length,list.filter(i=>i.ll).length);
+  if(!list.length){pane.innerHTML=`<div class="empty">${esc(L().none)}</div>`;return}
+  if(st.sort==='area'){
+    const groups={}, ord={}; list.forEach(i=>{const k=AR(i)||'￿'; ord[k]=i.ar?i.ar[3]:999; (groups[k]=groups[k]||[]).push(i)});
+    Object.keys(groups).sort((a,b)=>ord[a]-ord[b]).forEach(k=>{
+      const g=document.createElement('div');g.className='group';
+      g.innerHTML=`<h2>${esc(k==='￿'?L().other:k)} <span class="count">${groups[k].length}</span></h2>`;
+      const grid=document.createElement('div');grid.className='cards'; groups[k].forEach(i=>grid.append(card(i))); g.append(grid); pane.append(g);
+    });
+    return;
+  }
+  if(st.sort!=='def'){
+    const g=document.createElement('div');g.className='flatgrid';const grid=document.createElement('div');grid.className='cards';
+    list.forEach(i=>grid.append(card(i))); g.append(grid); pane.append(g); return;
+  }
   CATS.forEach(([c,cc])=>{
     const inC=list.filter(i=>i.c===c); if(!inC.length) return;
     const g=document.createElement('div');g.className='group';g.style.setProperty('--cc','var('+cc+')');
-    g.innerHTML=`<h2><span class="dot"></span>${esc(c)} <span class="count">${inC.length}</span></h2>`;
+    g.innerHTML=`<h2><span class="dot"></span>${esc(CN(c))} <span class="count">${inC.length}</span></h2>`;
     const subs=[...new Set(inC.map(i=>i.s))];
     subs.forEach(s=>{
-      if(subs.length>1||st.cat!=='All'){const h=document.createElement('h3');h.textContent=s;g.append(h)}
+      if(subs.length>1||st.cat!=='All'){const h=document.createElement('h3');h.textContent=SNs(s);g.append(h)}
       const grid=document.createElement('div');grid.className='cards';
       inC.filter(i=>i.s===s).forEach(i=>grid.append(card(i)));g.append(grid);
     });
@@ -2448,43 +7051,42 @@ function renderList(list){
 }
 
 /* ---------- map ---------- */
-let map, markers={}, layer;
+let map, markers={}, layer, meMarker=null;
 const YAMANOTE=[[35.6812,139.7671,'Tokyo'],[35.6918,139.7709,'Kanda'],[35.6984,139.7731,'Akihabara'],[35.7075,139.7748,'Okachimachi'],[35.7138,139.7773,'Ueno'],[35.7215,139.7781,'Uguisudani'],[35.7281,139.7710,'Nippori'],[35.7320,139.7668,''],[35.7381,139.7608,'Tabata'],[35.7365,139.7470,'Komagome'],[35.7334,139.7393,'Sugamo'],[35.7318,139.7286,'Otsuka'],[35.7295,139.7109,'Ikebukuro'],[35.7212,139.7066,'Mejiro'],[35.7126,139.7038,'Takadanobaba'],[35.7013,139.7000,'Shin-Okubo'],[35.6896,139.7006,'Shinjuku'],[35.6830,139.7020,'Yoyogi'],[35.6702,139.7027,'Harajuku'],[35.6580,139.7016,'Shibuya'],[35.6467,139.7101,'Ebisu'],[35.6339,139.7158,'Meguro'],[35.6262,139.7236,'Gotanda'],[35.6197,139.7286,'Osaki'],[35.6285,139.7388,'Shinagawa'],[35.6355,139.7407,''],[35.6457,139.7476,'Tamachi'],[35.6555,139.7570,'Hamamatsucho'],[35.6663,139.7583,'Shimbashi'],[35.6751,139.7630,'Yurakucho']];
 const CHUO=[[35.6812,139.7671],[35.6918,139.7709],[35.6995,139.7650],[35.7020,139.7450],[35.6860,139.7302],[35.6896,139.7006]];
 const OTHER=[[35.7114,139.7966,'Asakusa'],[35.6717,139.7650,'Ginza'],[35.6628,139.7314,'Roppongi'],[35.6654,139.7121,'Omotesando'],[35.6616,139.6681,'Shimokitazawa'],[35.6076,139.6687,'Jiyugaoka'],[35.6820,139.7740,'Nihonbashi'],[35.7101,139.8107,'Skytree'],[35.7020,139.7450,'Iidabashi'],[35.6860,139.7302,'Yotsuya'],[35.6995,139.7650,'Ochanomizu']];
 
 function initMap(){
-  if(!window.L){ $('#mapnote').hidden=false; $('#mapnote').textContent='The map library could not load. Check your connection.'; return; }
-  map=L.map('map',{zoomControl:true,attributionControl:true,tap:true}).setView([35.685,139.74],12);
+  if(!window.L){ $('#mapnote').hidden=false; $('#mapnote').textContent=L().mapLib; return; }
+  map=window.L.map('map',{zoomControl:true,attributionControl:true,tap:true}).setView([35.685,139.74],12);
   let tileErr=0, tileOk=0;
-  const tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,
+  const tiles=window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,
     attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'});
-  tiles.on('tileerror',()=>{tileErr++; if(tileErr>3&&!tileOk){ $('#mapnote').hidden=false; $('#mapnote').textContent='Street map tiles are not available here, so the Yamanote Line is drawn for orientation. Tap "Google Maps" on any place to navigate.'; }});
+  tiles.on('tileerror',()=>{tileErr++; if(tileErr>3&&!tileOk){ $('#mapnote').hidden=false; $('#mapnote').textContent=L().tiles; }});
   tiles.on('tileload',()=>{tileOk++; $('#mapnote').hidden=true;});
   tiles.addTo(map);
-  // orientation layer: Yamanote loop, Chuo line, station labels (always drawn, works offline)
-  L.polyline([...YAMANOTE.map(p=>[p[0],p[1]]),[YAMANOTE[0][0],YAMANOTE[0][1]]],{color:css('--yamanote'),weight:4,opacity:.75,interactive:false}).addTo(map);
-  L.polyline(CHUO,{color:'#f15a22',weight:3,opacity:.5,dashArray:'6 6',interactive:false}).addTo(map);
+  window.L.polyline([...YAMANOTE.map(p=>[p[0],p[1]]),[YAMANOTE[0][0],YAMANOTE[0][1]]],{color:css('--yamanote'),weight:4,opacity:.75,interactive:false}).addTo(map);
+  window.L.polyline(CHUO,{color:'#f15a22',weight:3,opacity:.5,dashArray:'6 6',interactive:false}).addTo(map);
   [...YAMANOTE.filter(p=>p[2]),...OTHER].forEach(p=>{
-    L.circleMarker([p[0],p[1]],{radius:2.5,color:css('--muted'),weight:1,fillOpacity:1,interactive:false}).addTo(map)
+    window.L.circleMarker([p[0],p[1]],{radius:2.5,color:css('--muted'),weight:1,fillOpacity:1,interactive:false}).addTo(map)
      .bindTooltip(p[2],{permanent:true,direction:'right',offset:[4,0],className:'stn'});
   });
   const lblToggle=()=>document.getElementById('map').classList.toggle('nolbl',map.getZoom()<13); map.on('zoomend',lblToggle); lblToggle();
-  layer=L.layerGroup().addTo(map);
-  const lg=$('#legend'); lg.innerHTML=CATS.map(([c,cc])=>`<span style="--cc:var(${cc})"><i></i>${esc(c)}</span>`).join('');
+  layer=window.L.layerGroup().addTo(map);
 }
 function drawMarkers(list){
   if(!map) return; layer.clearLayers(); markers={};
   const pts=[];
   list.filter(i=>i.ll).forEach(it=>{
     const col=css(CV[it.c]);
-    const m=L.circleMarker(it.ll,{radius:8,color:'#fff',weight:2,fillColor:col,fillOpacity:it.ap?.7:1,dashArray:it.ap?'3 3':null});
-    m.bindPopup(`<div class="pop"><b>${esc(it.n)}</b><span style="color:${col};font-size:12px">${esc(it.s)}</span>${it.ap?'<div style="font-size:11.5px;opacity:.75">Approximate location</div>':''}<br><button data-open="${it.id}">Details</button></div>`);
+    const m=window.L.circleMarker(it.ll,{radius:8,color:'#fff',weight:2,fillColor:col,fillOpacity:it.ap?.7:1,dashArray:it.ap?'3 3':null});
+    m.bindPopup(`<div class="pop"><b>${esc(N(it))}</b><span style="color:${col};font-size:12px">${esc(SN(it))}</span>${it.r?` <span style="font-size:12px">★${it.r.toFixed(2)}</span>`:''}${it.ap?`<div style="font-size:11.5px;opacity:.75">${esc(L().approxLoc)}</div>`:''}<br><button data-open="${it.id}">${esc(L().details)}</button></div>`);
     m.on('mouseover',()=>hlCard(it.id,true)); m.on('mouseout',()=>hlCard(it.id,false));
     m.addTo(layer); markers[it.id]=m; pts.push(it.ll);
   });
+  if(me){ if(meMarker) meMarker.remove(); meMarker=window.L.circleMarker(me,{radius:7,color:'#fff',weight:3,fillColor:'#1a73e8',fillOpacity:1,interactive:false}).addTo(map); }
   const core=pts.filter(p=>p[0]>35.55&&p[0]<35.80&&p[1]>139.60&&p[1]<139.90); const fitPts=core.length?core:pts;
-  if(fitPts.length && !mapTouched){ const b=L.latLngBounds(fitPts); pts.length=0; pts.push(...fitPts); if(pts.length===1) map.setView(pts[0],15); else map.fitBounds(b.pad(.08),{maxZoom:15}); }
+  if(fitPts.length && !mapTouched){ if(fitPts.length===1) map.setView(fitPts[0],15); else map.fitBounds(window.L.latLngBounds(fitPts).pad(.08),{maxZoom:15}); }
 }
 let mapTouched=false;
 function hlMarker(id,on){const m=markers[id]; if(m) m.setStyle({radius:on?12:8}); }
@@ -2492,41 +7094,68 @@ function hlCard(id,on){const c=document.querySelector('.card[data-id="'+id+'"]')
 document.addEventListener('click',e=>{const b=e.target.closest('[data-open]'); if(b) openSheet(+b.dataset.open);});
 
 /* ---------- detail ---------- */
-let lastFocus=null;
+let lastFocus=null, openId=null;
 function openSheet(id){
-  const it=items[id]; lastFocus=document.activeElement;
+  const it=items[id]; if(openId===null) lastFocus=document.activeElement; openId=id;
   const sh=$('#sheet'); sh.style.setProperty('--cc','var('+CV[it.c]+')');
   const refs=(it.refs&&it.refs.length?it.refs:(it.src?[it.src]:[]));
   const src=refs.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.replace('https://www.',''))}</a>`).join('<br>');
-  sh.innerHTML=`<div class="shead"><button id="sSave" aria-pressed="${saved.has(it.id)}">${saved.has(it.id)?'♥ Saved':'♡ Save'}</button><button id="sClose" aria-label="Close">✕</button></div>
-   ${it.img?`<img class="shero" src="${it.img}" alt="${esc(it.n)}">`:'<div style="height:56px"></div>'}
-   ${it.pc?`<div class="pcred">Photo: <a href="${esc(it.pu)}" target="_blank" rel="noopener">${esc(it.pc)}</a></div>`:''}
+  const tb=it.tb?`<div class="block"><h3>${esc(L().tabelog)}</h3><div class="tbrow"><span class="tbscore">★ ${esc(it.tb.s)}<small>${esc(it.tb.n)} ${esc(L().reviews)}</small></span>
+      <span class="tbprice">${it.tb.dn&&it.tb.dn!=='-'?`<span>🌙 ${esc(L().dinner)} ${esc(it.tb.dn)}</span>`:''}${it.tb.ln&&it.tb.ln!=='-'?`<span>☀️ ${esc(L().lunch)} ${esc(it.tb.ln)}</span>`:''}</span></div>
+      <a class="btn" href="${esc(it.tb.u)}" target="_blank" rel="noopener" style="align-self:flex-start">${esc(L().open)}</a></div>`:'';
+  const info=(it.h?`<div class="block"><h3>🕒 ${esc(L().hours)}</h3><p>${esc(TX(it.h))}</p>${it.tb?`<span class="note">${esc(L().checked)}</span>`:''}</div>`:'')
+    +(it.tip?`<div class="block"><h3>📌 ${esc(L().tip)}</h3><p>${esc(TX(it.tip))}</p></div>`:'')
+    +(it.cs?`<div class="block"><h3>💬 ${esc(L().cs)}</h3><p>${esc(TX(it.cs))}</p></div>`:'');
+  const gal=it.g&&it.g.length?`<div class="block"><h3>📷 ${esc(L().gal)} · ${esc(L().photos(it.g.length))}</h3><div class="gal">${it.g.map((f,k)=>`<button data-g="${k}" aria-label="${esc(L().photo)} ${k+1}" data-bg="${f}"></button>`).join('')}</div></div>`:'';
+  sh.innerHTML=`<div class="shead"><button id="sSave" aria-pressed="${saved.has(it.id)}">${saved.has(it.id)?L().savedB:L().save}</button><button id="sClose" aria-label="Close">✕</button></div>
+   ${it.img?`<img class="shero" src="${it.img}" alt="${esc(N(it))}">`:'<div style="height:56px"></div>'}
+   ${it.pc?`<div class="pcred">${esc(L().photo)}: <a href="${esc(it.pu)}" target="_blank" rel="noopener">${esc(it.pc)}</a></div>`:''}
    <div class="sbody">
-     <span class="sub" style="color:var(--cc)">${esc(it.c)} · ${esc(it.s)}</span>
-     <h2 id="sTitle">${esc(it.n)}</h2>
+     <span class="sub" style="color:var(--cc)">${esc(CN(it.c))} · ${esc(SN(it))}${it.ar?' · '+esc(AR(it)):''}</span>
+     <h2 id="sTitle">${esc(N(it))}</h2>
      ${it.j?`<div class="jp" style="font-size:15px">${esc(it.j)}</div>`:''}
-     <p>${esc(it.d)}</p>
-     ${it.li&&it.li.length?`<ul class="places">${it.li.map(n=>`<li><a href="${gq(n)}" target="_blank" rel="noopener"><span>${esc(n)}</span><span>Map ↗</span></a></li>`).join('')}</ul>`:''}
+     <p>${esc(D(it))}</p>
+     ${tb}${info}${gal}
+     ${it.li&&it.li.length?`<ul class="places">${it.li.map(n=>`<li><a href="${gq(n)}" target="_blank" rel="noopener"><span>${esc(n)}</span><span>${esc(L().map)} ↗</span></a></li>`).join('')}</ul>`:''}
      <dl class="meta">
-       ${it.a?`<dt>Address</dt><dd>${esc(it.a)}</dd>`:''}
-       <dt>Location</dt><dd>${it.ll?(it.ap?'Approximate (area only). Use Google Maps for the exact spot.':'Pinned from address'):'Not pinned. Search the name in Google Maps.'}</dd>
-       <dt>From</dt><dd>${esc(it.by)}</dd>
+       ${it.a?`<dt>${esc(L().addr)}</dt><dd>${esc(it.a)}</dd>`:''}
+       <dt>${esc(L().loc)}</dt><dd>${esc(it.ll?(it.ap?L().locApprox:L().locPin):L().locNone)}</dd>
+       <dt>${esc(L().from)}</dt><dd>${esc(it.by)}</dd>
      </dl>
      <div class="actions">
-       ${(it.ll||it.a||(it.j&&it.c!=='Info & Tips'))&&!(it.li&&it.li.length&&!it.ll)?`<a class="btn primary" href="${gmaps(it)}" target="_blank" rel="noopener">Google Maps ↗</a>`:''}
-       ${it.ll&&map?`<button class="btn" id="sShow">Show on map</button>`:''}
-       ${refs.map((u,k)=>`<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">${refs.length>1?'Post '+(k+1):'Original post'} ↗</a>`).join('')}
+       ${(it.ll||it.a||(it.j&&it.c!=='Info & Tips'))&&!(it.li&&it.li.length&&!it.ll)?`<a class="btn primary" href="${gmaps(it)}" target="_blank" rel="noopener">${esc(L().gmaps)}</a>`:''}
+       ${it.ll&&map?`<button class="btn" id="sShow">${esc(L().show)}</button>`:''}
+       ${refs.map((u,k)=>`<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">${esc(refs.length>1?L().post(k+1):L().orig)}</a>`).join('')}
      </div>
-     <div class="src">${refs.length>1?'References ('+refs.length+' posts)':'Reference'}:<br>${src}</div>
+     <div class="src">${esc(refs.length>1?L().refs(refs.length):L().ref)}:<br>${src}</div>
    </div>`;
-  $('#sheetBg').hidden=false; sh.hidden=false; sh.scrollTop=0;
-  $('#sClose').onclick=closeSheet; $('#sClose').focus();
-  $('#sSave').onclick=()=>{toggleSave(it.id); $('#sSave').setAttribute('aria-pressed',saved.has(it.id)); $('#sSave').textContent=saved.has(it.id)?'♥ Saved':'♡ Save';};
+  $('#sheetBg').hidden=false; sh.hidden=false;
+  // lazy-load gallery thumbnails as they scroll into view
+  const gb=[...sh.querySelectorAll('[data-bg]')];
+  if('IntersectionObserver' in window){ const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.style.backgroundImage=`url('${e.target.dataset.bg}')`;io.unobserve(e.target)}}),{root:null,rootMargin:'200px'}); gb.forEach(b=>io.observe(b)); }
+  else gb.forEach(b=>b.style.backgroundImage=`url('${b.dataset.bg}')`);
+  $('#sClose').onclick=closeSheet; $('#sClose').focus({preventScroll:true});
+  $('#sSave').onclick=()=>{toggleSave(it.id); $('#sSave').setAttribute('aria-pressed',saved.has(it.id)); $('#sSave').textContent=saved.has(it.id)?L().savedB:L().save;};
+  sh.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>openLB(it.g,+b.dataset.g));
   const sb=$('#sShow'); if(sb) sb.onclick=()=>{closeSheet(); setView('map'); mapTouched=true; map.setView(it.ll,16); setTimeout(()=>markers[it.id]&&markers[it.id].openPopup(),250);};
 }
-function closeSheet(){ $('#sheet').hidden=true; $('#sheetBg').hidden=true; if(lastFocus&&lastFocus.focus) lastFocus.focus(); }
+function closeSheet(){ $('#sheet').hidden=true; $('#sheetBg').hidden=true; openId=null; if(lastFocus&&lastFocus.focus) lastFocus.focus(); }
 $('#sheetBg').onclick=closeSheet;
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden) closeSheet();});
+
+/* ---------- lightbox ---------- */
+let lbList=[], lbI=0;
+function showLB(){ $('#lbImg').src=lbList[lbI]; $('#lbCount').textContent=(lbI+1)+' / '+lbList.length; }
+function openLB(list,i){ lbList=list; lbI=i; showLB(); $('#lb').hidden=false; $('#lbClose').focus({preventScroll:true}); }
+function closeLB(){ $('#lb').hidden=true; $('#lbImg').removeAttribute('src'); }
+const stepLB=d=>{ lbI=(lbI+d+lbList.length)%lbList.length; showLB(); };
+$('#lbPrev').onclick=e=>{e.stopPropagation();stepLB(-1)}; $('#lbNext').onclick=e=>{e.stopPropagation();stepLB(1)}; $('#lbClose').onclick=closeLB;
+$('#lb').onclick=e=>{ if(e.target.id==='lb') closeLB(); };
+let tx=null; $('#lb').addEventListener('touchstart',e=>{tx=e.touches[0].clientX},{passive:true});
+$('#lb').addEventListener('touchend',e=>{ if(tx===null) return; const dx=e.changedTouches[0].clientX-tx; if(Math.abs(dx)>40) stepLB(dx<0?1:-1); tx=null; });
+document.addEventListener('keydown',e=>{
+  if(!$('#lb').hidden){ if(e.key==='Escape') closeLB(); else if(e.key==='ArrowRight') stepLB(1); else if(e.key==='ArrowLeft') stepLB(-1); return; }
+  if(e.key==='Escape'&&!$('#sheet').hidden) closeSheet();
+});
 
 function toggleSave(id){ saved.has(id)?saved.delete(id):saved.add(id); persist();
   document.querySelectorAll('.card[data-id="'+id+'"] .heart').forEach(h=>{h.setAttribute('aria-pressed',saved.has(id));h.textContent=saved.has(id)?'♥':'♡'});
@@ -2541,11 +7170,23 @@ $('#vList').onclick=()=>setView('list'); $('#vMap').onclick=()=>setView('map');
 function sizeHdr(){ document.documentElement.style.setProperty('--hdr',($('#hdr').getBoundingClientRect().bottom)+'px'); if(map) map.invalidateSize(); }
 function update(){ renderChips(); const l=filtered(); renderList(l); mapTouched=false; drawMarkers(l); sizeHdr(); }
 
+document.querySelectorAll('.lang button').forEach(b=>b.onclick=()=>{ lang=b.dataset.lang; try{localStorage.setItem('tp-lang',lang)}catch(e){}
+  renderStatic(); update(); if(openId!==null){ const sc=$('#sheet').scrollTop; openSheet(openId); $('#sheet').scrollTop=sc; } });
+$('#sort').onchange=e=>{
+  const v=e.target.value;
+  if(v==='near'){
+    const fail=()=>{ alert(L().geoErr); st.sort='area'; try{localStorage.setItem('tp-sort','area')}catch(e){} renderStatic(); update(); };
+    if(!navigator.geolocation){ fail(); return; }
+    $('#count').textContent=L().geoWait;
+    navigator.geolocation.getCurrentPosition(p=>{ me=[p.coords.latitude,p.coords.longitude]; st.sort='near'; update(); }, fail, {enableHighAccuracy:false,timeout:10000,maximumAge:300000});
+    return;
+  }
+  st.sort=v; try{localStorage.setItem('tp-sort',v)}catch(e){} update();
+};
 let t; $('#q').addEventListener('input',e=>{clearTimeout(t);t=setTimeout(()=>{st.q=e.target.value.trim();update()},150)});
 $('#savedBtn').onclick=()=>{st.saved=!st.saved;$('#savedBtn').setAttribute('aria-pressed',st.saved);if(st.saved){st.cat='All';st.sub='All'}update()};
 window.addEventListener('resize',sizeHdr);
-setView('list'); initMap(); update();
-if(map) map.on('dragstart zoomstart',()=>{});
+renderStatic(); setView('list'); initMap(); update();
 })();
 </script>
 
